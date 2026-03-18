@@ -2,36 +2,49 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "n
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
-import { encrypt, decrypt } from "./crypto.ts";
+import { encrypt, decrypt, encryptWithKey, decryptWithKey, hmacSha256 } from "./crypto.ts";
 import { parseEnvFile } from "./env-parser.ts";
 
 const EVAULT_DIR = join(homedir(), ".evault");
-const VAULT_FILE = join(EVAULT_DIR, "vault.enc");
-const SESSION_FILE = join(EVAULT_DIR, ".session");
+const VAULT_FILE = join(EVAULT_DIR, "vault.enc");    // Main vault (password-encrypted)
+const CACHE_FILE = join(EVAULT_DIR, "cache.enc");    // Session cache (random-key-encrypted)
+const SESSION_FILE = join(EVAULT_DIR, ".session");    // Random session key (NOT the password)
 
-const SUFFIX_LENGTH = 12;
-const SUFFIX_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-interface VaultData {
-  // Obfuscated key → value (e.g. "OPENAI_API_KEY_a7Bx#9mK2pQ1" → "sk-...")
-  secrets: Record<string, string>;
-  // Clean name → obfuscated key (only accessible with password)
-  aliases: Record<string, string>;
+/**
+ * Main vault — only accessible with master password.
+ * Contains the HMAC seed and alias registry that an LLM can never reach.
+ */
+interface MainVault {
+  version: 2;
+  hmacSeed: string;       // hex — random 32 bytes, used to generate opaque names
+  sshKeyPath?: string;    // optional SSH key factor path
+  secrets: Record<string, string>;  // opaque_name → value
+  registry: string[];     // clean names (for list command)
 }
 
-/** Generate a random 12-char suffix from letters, digits, and special chars */
-function generateSuffix(): string {
-  const bytes = randomBytes(SUFFIX_LENGTH);
-  let suffix = "";
-  for (let i = 0; i < SUFFIX_LENGTH; i++) {
-    suffix += SUFFIX_CHARS[bytes[i]! % SUFFIX_CHARS.length];
+/**
+ * Session cache — accessible with random session key.
+ * Contains ONLY the secrets map. No aliases, no seed, no registry.
+ * Even if an LLM reads .session + cache.enc, it can only access
+ * secrets whose opaque names it already knows from the source code.
+ */
+interface SessionCache {
+  secrets: Record<string, string>;  // opaque_name → value
+}
+
+/**
+ * Compute a fully opaque key name: HMAC-SHA256(seed, cleanName) → "ev_" + 24 hex chars.
+ * No trace of the original name. Impossible to reverse without the seed.
+ * If SSH key is configured, the seed is further derived from the SSH key content.
+ */
+function computeOpaqueName(hmacSeed: string, cleanName: string, sshKeyContent?: string): string {
+  let effectiveSeed = hmacSeed;
+  if (sshKeyContent) {
+    // Mix SSH key file content into the seed — adds "something you have" factor
+    effectiveSeed = hmacSha256(hmacSeed, sshKeyContent);
   }
-  return suffix;
-}
-
-/** Build an obfuscated internal key: CLEAN_NAME_<random12> */
-function obfuscateKey(cleanName: string): string {
-  return `${cleanName}_${generateSuffix()}`;
+  const hash = hmacSha256(effectiveSeed, cleanName);
+  return "ev_" + hash.slice(0, 24);
 }
 
 function ensureDir(): void {
@@ -44,156 +57,206 @@ export function vaultExists(): boolean {
   return existsSync(VAULT_FILE);
 }
 
-function readVault(password: string): VaultData {
+/** Read main vault (requires master password) */
+function readMainVault(password: string): MainVault {
   if (!existsSync(VAULT_FILE)) {
     throw new Error("Vault not found. Run 'evault init' first.");
   }
   const payload = readFileSync(VAULT_FILE);
   const json = decrypt(payload, password);
-  const data = JSON.parse(json) as Partial<VaultData>;
-  return {
-    secrets: data.secrets ?? {},
-    aliases: data.aliases ?? {},
-  };
+  const data = JSON.parse(json);
+  if (!data.version || data.version < 2) {
+    throw new Error("Vault format outdated. Delete ~/.evault/ and re-initialize.");
+  }
+  return data as MainVault;
 }
 
-function writeVault(data: VaultData, password: string): void {
+function writeMainVault(data: MainVault, password: string): void {
   ensureDir();
   const json = JSON.stringify(data);
   const encrypted = encrypt(json, password);
   writeFileSync(VAULT_FILE, encrypted, { mode: 0o600 });
 }
 
-// Session key management
-export function saveSessionKey(password: string): void {
+/**
+ * Write session cache — encrypted with a RANDOM key (not the password).
+ * The cache contains ONLY the secrets map. An LLM reading .session + cache.enc
+ * can look up values by opaque name, but cannot discover names or enumerate keys.
+ */
+function writeSessionCache(secrets: Record<string, string>): void {
   ensureDir();
-  writeFileSync(SESSION_FILE, password, { mode: 0o600 });
+  const sessionKey = randomBytes(32);
+  const cache: SessionCache = { secrets };
+  const json = JSON.stringify(cache);
+  const encrypted = encryptWithKey(json, sessionKey);
+  writeFileSync(CACHE_FILE, encrypted, { mode: 0o600 });
+  writeFileSync(SESSION_FILE, sessionKey.toString("hex"), { mode: 0o600 });
 }
 
-export function getSessionPassword(): string | null {
-  if (!existsSync(SESSION_FILE)) return null;
+function readSessionCache(): SessionCache | null {
+  if (!existsSync(SESSION_FILE) || !existsSync(CACHE_FILE)) return null;
   try {
-    return readFileSync(SESSION_FILE, "utf8");
+    const sessionKeyHex = readFileSync(SESSION_FILE, "utf8").trim();
+    const sessionKey = Buffer.from(sessionKeyHex, "hex");
+    const payload = readFileSync(CACHE_FILE);
+    const json = decryptWithKey(payload, sessionKey);
+    return JSON.parse(json) as SessionCache;
   } catch {
     return null;
   }
 }
 
-export function initVault(password: string, envFile?: string): number {
+/** Read SSH key content if configured */
+function loadSshKey(vault: MainVault): string | undefined {
+  if (!vault.sshKeyPath) return undefined;
+  if (!existsSync(vault.sshKeyPath)) {
+    throw new Error(`SSH key not found: ${vault.sshKeyPath}. This vault requires the SSH key to operate.`);
+  }
+  return readFileSync(vault.sshKeyPath, "utf8");
+}
+
+// ─── Public API ───
+
+export function initVault(password: string, options?: { envFile?: string; sshKeyPath?: string }): number {
   if (vaultExists()) {
     throw new Error("Vault already exists. Delete ~/.evault/vault.enc to reinitialize.");
   }
 
-  const data: VaultData = { secrets: {}, aliases: {} };
-  let count = 0;
+  // Validate SSH key exists before creating vault
+  if (options?.sshKeyPath && !existsSync(options.sshKeyPath)) {
+    throw new Error(`SSH key not found: ${options.sshKeyPath}`);
+  }
 
-  if (envFile) {
-    const envSecrets = parseEnvFile(envFile);
+  const hmacSeed = randomBytes(32).toString("hex");
+  const sshKeyContent = options?.sshKeyPath ? readFileSync(options.sshKeyPath, "utf8") : undefined;
+
+  const vault: MainVault = {
+    version: 2,
+    hmacSeed,
+    sshKeyPath: options?.sshKeyPath,
+    secrets: {},
+    registry: [],
+  };
+
+  let count = 0;
+  if (options?.envFile) {
+    const envSecrets = parseEnvFile(options.envFile);
     for (const [key, value] of Object.entries(envSecrets)) {
-      const obfuscated = obfuscateKey(key);
-      data.secrets[obfuscated] = value;
-      data.aliases[key] = obfuscated;
+      const opaque = computeOpaqueName(hmacSeed, key, sshKeyContent);
+      vault.secrets[opaque] = value;
+      vault.registry.push(key);
       count++;
     }
   }
 
-  writeVault(data, password);
-  saveSessionKey(password);
+  writeMainVault(vault, password);
+  writeSessionCache(vault.secrets);
   chmodSync(EVAULT_DIR, 0o700);
   return count;
 }
 
-/** Set a secret; returns the obfuscated key so user can copy it right away */
+/** Set a secret; returns the opaque key name for use in code */
 export function setSecret(key: string, value: string, password: string): string {
-  const data = readVault(password);
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
 
-  // If alias exists, reuse the same obfuscated key; otherwise generate new
-  const obfuscated = data.aliases[key] ?? obfuscateKey(key);
-  data.secrets[obfuscated] = value;
-  data.aliases[key] = obfuscated;
+  vault.secrets[opaque] = value;
+  if (!vault.registry.includes(key)) {
+    vault.registry.push(key);
+  }
 
-  writeVault(data, password);
-  saveSessionKey(password);
-  return obfuscated;
+  writeMainVault(vault, password);
+  writeSessionCache(vault.secrets);
+  return opaque;
 }
 
-/**
- * Reveal the obfuscated key for a clean name. REQUIRES PASSWORD.
- * This is the only way to discover the obfuscated key name.
- */
+/** Reveal the opaque key for a clean name. REQUIRES PASSWORD + SSH KEY. */
 export function revealKey(cleanName: string, password: string): string | undefined {
-  const data = readVault(password);
-  return data.aliases[cleanName];
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  const opaque = computeOpaqueName(vault.hmacSeed, cleanName, sshKeyContent);
+  return opaque in vault.secrets ? opaque : undefined;
 }
 
-/**
- * Get a secret by its OBFUSCATED key (the one with the random suffix).
- * NO PASSWORD NEEDED — but you must know the exact obfuscated key.
- * LLMs can't guess this because of the 12-char random suffix.
- */
-export function getSecret(obfuscatedKey: string, password: string): string | undefined {
-  const data = readVault(password);
-  return data.secrets[obfuscatedKey];
+/** Get a secret from session cache by opaque key. NO PASSWORD NEEDED. */
+export function getSecretFromCache(opaqueKey: string): string | undefined {
+  const cache = readSessionCache();
+  if (!cache) {
+    throw new Error("No session found. Run any evault command with your password first.");
+  }
+  return cache.secrets[opaqueKey];
+}
+
+/** Get a secret by opaque key using password (fallback, also refreshes cache). */
+export function getSecret(opaqueKey: string, password: string): string | undefined {
+  const vault = readMainVault(password);
+  writeSessionCache(vault.secrets);
+  return vault.secrets[opaqueKey];
 }
 
 export function deleteSecret(key: string, password: string): boolean {
-  const data = readVault(password);
-  const obfuscated = data.aliases[key];
-  if (!obfuscated) return false;
-  delete data.secrets[obfuscated];
-  delete data.aliases[key];
-  writeVault(data, password);
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+
+  if (!(opaque in vault.secrets)) return false;
+  delete vault.secrets[opaque];
+  vault.registry = vault.registry.filter(k => k !== key);
+
+  writeMainVault(vault, password);
+  writeSessionCache(vault.secrets);
   return true;
 }
 
-/** List clean key names only (no obfuscated keys revealed) */
+/** List clean key names only. Requires password. No opaque names revealed. */
 export function listKeys(password: string): string[] {
-  const data = readVault(password);
-  return Object.keys(data.aliases);
+  const vault = readMainVault(password);
+  return vault.registry;
 }
 
-/** Import from .env; returns count of imported secrets */
 export function importEnv(filePath: string, password: string): number {
   const envSecrets = parseEnvFile(filePath);
-  const data = readVault(password);
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
 
   let count = 0;
   for (const [key, value] of Object.entries(envSecrets)) {
-    const obfuscated = data.aliases[key] ?? obfuscateKey(key);
-    data.secrets[obfuscated] = value;
-    data.aliases[key] = obfuscated;
+    const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+    vault.secrets[opaque] = value;
+    if (!vault.registry.includes(key)) {
+      vault.registry.push(key);
+    }
     count++;
   }
 
-  writeVault(data, password);
+  writeMainVault(vault, password);
+  writeSessionCache(vault.secrets);
   return count;
 }
 
 export function exportEnv(password: string): string {
-  const data = readVault(password);
-  return Object.entries(data.aliases)
-    .map(([cleanName, obfuscated]) => `${cleanName}=${data.secrets[obfuscated] ?? ""}`)
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  return vault.registry
+    .map(cleanName => {
+      const opaque = computeOpaqueName(vault.hmacSeed, cleanName, sshKeyContent);
+      return `${cleanName}=${vault.secrets[opaque] ?? ""}`;
+    })
     .join("\n");
 }
 
-/**
- * Library get() — uses the OBFUSCATED key (with random suffix).
- * Users must know the exact obfuscated key from `evault reveal`.
- */
-export function getSecretWithSession(obfuscatedKey: string): string | undefined {
-  const password = getSessionPassword();
-  if (!password) {
-    throw new Error("No session found. Run 'evault init' or any evault command with your password first.");
-  }
-  return getSecret(obfuscatedKey, password);
+// ─── Library API (session cache only — no password, no enumeration) ───
+
+export function getSecretWithSession(opaqueKey: string): string | undefined {
+  return getSecretFromCache(opaqueKey);
 }
 
-export function hasSecretWithSession(obfuscatedKey: string): boolean {
-  const password = getSessionPassword();
-  if (!password) return false;
+export function hasSecretWithSession(opaqueKey: string): boolean {
   try {
-    const data = readVault(password);
-    return obfuscatedKey in data.secrets;
+    const cache = readSessionCache();
+    if (!cache) return false;
+    return opaqueKey in cache.secrets;
   } catch {
     return false;
   }

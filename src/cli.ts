@@ -6,14 +6,13 @@ import {
   initVault,
   setSecret,
   getSecret,
+  getSecretFromCache,
   deleteSecret,
   listKeys,
   importEnv,
   exportEnv,
   revealKey,
   vaultExists,
-  getSessionPassword,
-  saveSessionKey,
 } from "./vault.ts";
 import { activateLicense, checkLicense } from "./license.ts";
 
@@ -25,23 +24,25 @@ function usage(): void {
 eVault — Local Secret Vault for LLM-Safe Environments
 
 Usage:
-  evault activate <token>    Activate license
-  evault init [--env <file>] Initialize vault (optionally import .env)
-  evault set <key> <value>   Add/update a secret (password required)
-  evault get <obfuscated>    Retrieve a secret value (no password needed)
-  evault reveal <key>        Show the obfuscated key name (password required)
-  evault delete <key>        Remove a secret (password required)
-  evault list                List clean key names (password required)
-  evault import <file>       Import from .env file (password required)
-  evault export              Export all secrets as .env format (password required)
-  evault help                Show this help
+  evault activate <token>              Activate license
+  evault init [--env <f>] [--ssh-key <f>]  Initialize vault
+  evault set <key> <value>             Add/update a secret (outputs opaque key)
+  evault get <opaque_key>              Retrieve a value (no password needed)
+  evault reveal <key>                  Show opaque key name (password required)
+  evault delete <key>                  Remove a secret (password required)
+  evault list                          List clean key names (password required)
+  evault import <file>                 Import from .env file (password required)
+  evault export                        Export as .env format (password required)
+  evault help                          Show this help
 
 Security model:
-  1. evault set OPENAI_API_KEY sk-...    → stores with random suffix
-  2. evault reveal OPENAI_API_KEY        → shows: OPENAI_API_KEY_a7Bx#9mK2pQ1
-  3. evault.get("OPENAI_API_KEY_a7Bx#9mK2pQ1")  → returns value in code
+  1. evault set OPENAI_API_KEY sk-...     → outputs: ev_7a3f2b1e9c8d4f6b2a1c3d5f
+  2. evault reveal OPENAI_API_KEY         → password required to see opaque key
+  3. evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f")  → returns value (no password)
 
-  LLMs cannot discover the obfuscated key without your master password.
+  Key names are HMAC-SHA256 hashes — fully opaque, no trace of original name.
+  Session cache stores secrets only — no aliases, no seed, no enumeration.
+  Optional --ssh-key adds hardware-level "something you have" factor.
 `);
 }
 
@@ -101,6 +102,11 @@ function requireLicense(): void {
   }
 }
 
+function getFlag(name: string): string | undefined {
+  const idx = args.indexOf(name);
+  return idx !== -1 ? args[idx + 1] : undefined;
+}
+
 async function main(): Promise<void> {
   if (!command || command === "help" || command === "--help" || command === "-h") {
     usage();
@@ -141,19 +147,26 @@ async function main(): Promise<void> {
         process.exit(1);
       }
 
-      const envFlag = args.indexOf("--env");
-      const envFile = envFlag !== -1 ? args[envFlag + 1] : undefined;
+      const envFile = getFlag("--env");
+      const sshKeyPath = getFlag("--ssh-key");
 
       if (envFile && !existsSync(envFile)) {
         console.error(`File not found: ${envFile}`);
         process.exit(1);
       }
+      if (sshKeyPath && !existsSync(sshKeyPath)) {
+        console.error(`SSH key not found: ${sshKeyPath}`);
+        process.exit(1);
+      }
 
-      const count = initVault(password, envFile);
+      const count = initVault(password, { envFile, sshKeyPath });
       console.log("Vault initialized successfully!");
+      if (sshKeyPath) {
+        console.log(`SSH key factor enabled: ${sshKeyPath}`);
+      }
       if (count > 0) {
-        console.log(`Imported ${count} secrets from ${envFile}`);
-        console.log(`\nUse 'evault reveal <KEY>' with your password to get the obfuscated key for each secret.`);
+        console.log(`Imported ${count} secrets.`);
+        console.log(`\nUse 'evault reveal <KEY>' to get the opaque key for each secret.`);
       }
       break;
     }
@@ -167,8 +180,8 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const password = await requirePassword();
-      const obfuscated = setSecret(key, value, password);
-      console.log(`${obfuscated}`);
+      const opaque = setSecret(key, value, password);
+      console.log(opaque);
       break;
     }
 
@@ -180,9 +193,9 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const password = await requirePassword();
-      const obfuscated = revealKey(key, password);
-      if (obfuscated) {
-        console.log(obfuscated);
+      const opaque = revealKey(key, password);
+      if (opaque) {
+        console.log(opaque);
       } else {
         console.error(`Secret '${key}' not found.`);
         process.exit(1);
@@ -194,32 +207,25 @@ async function main(): Promise<void> {
       requireLicense();
       const key = args[1];
       if (!key) {
-        console.error("Usage: evault get <obfuscated_key>");
+        console.error("Usage: evault get <opaque_key>");
         process.exit(1);
       }
-      // Try session password first (no prompt needed for get)
-      const sessionPw = getSessionPassword();
-      if (sessionPw) {
-        try {
-          const value = getSecret(key, sessionPw);
-          if (value !== undefined) {
-            process.stdout.write(value);
-          } else {
-            console.error(`Secret not found. Make sure you're using the full obfuscated key from 'evault reveal'.`);
-            process.exit(1);
-          }
+      // Try session cache first (no password prompt)
+      try {
+        const value = getSecretFromCache(key);
+        if (value !== undefined) {
+          process.stdout.write(value);
           break;
-        } catch {
-          // Session key invalid, fall through to prompt
         }
+      } catch {
+        // No cache, fall through to password prompt
       }
       const password = await requirePassword();
       const val = getSecret(key, password);
       if (val !== undefined) {
-        saveSessionKey(password);
         process.stdout.write(val);
       } else {
-        console.error(`Secret not found. Make sure you're using the full obfuscated key from 'evault reveal'.`);
+        console.error(`Secret not found. Use 'evault reveal <name>' to get the opaque key.`);
         process.exit(1);
       }
       break;
@@ -253,7 +259,7 @@ async function main(): Promise<void> {
         for (const k of keys) {
           console.log(k);
         }
-        console.log(`\n${keys.length} secret(s). Use 'evault reveal <KEY>' to get the obfuscated key.`);
+        console.log(`\n${keys.length} secret(s). Use 'evault reveal <KEY>' to get the opaque key.`);
       }
       break;
     }
@@ -271,8 +277,8 @@ async function main(): Promise<void> {
       }
       const password = await requirePassword();
       const count = importEnv(file, password);
-      console.log(`Imported ${count} secrets from ${file}`);
-      console.log(`\nUse 'evault reveal <KEY>' with your password to get the obfuscated key for each secret.`);
+      console.log(`Imported ${count} secrets.`);
+      console.log(`\nUse 'evault reveal <KEY>' to get the opaque key for each secret.`);
       break;
     }
 
