@@ -181,7 +181,9 @@ async function main(): Promise<void> {
       }
       const password = await requirePassword();
       const opaque = setSecret(key, value, password);
-      console.log(opaque);
+      console.log(`\n  ${key} → ${opaque}\n`);
+      console.log(`  Use this in your code to access ${key}:`);
+      console.log(`    evault.get("${opaque}")\n`);
       break;
     }
 
@@ -195,7 +197,9 @@ async function main(): Promise<void> {
       const password = await requirePassword();
       const opaque = revealKey(key, password);
       if (opaque) {
-        console.log(opaque);
+        console.log(`\n  ${key} → ${opaque}\n`);
+        console.log(`  Use this in your code to access ${key}:`);
+        console.log(`    evault.get("${opaque}")\n`);
       } else {
         console.error(`Secret '${key}' not found.`);
         process.exit(1);
