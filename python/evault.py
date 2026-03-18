@@ -14,6 +14,7 @@ Requirements:
 """
 
 import json
+import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -54,15 +55,28 @@ def _get_cache() -> dict:
 
 
 def get(key: str) -> str | None:
-    """Get a secret by its opaque key (e.g. 'ev_7a3f2b1e9c8d4f6b2a1c3d5f')."""
-    cache = _get_cache()
-    return cache.get("secrets", {}).get(key)
+    """Get a secret by its opaque key. Falls back to os.environ[key] if vault is unavailable."""
+    try:
+        cache = _get_cache()
+        value = cache.get("secrets", {}).get(key)
+        if value is not None:
+            return value
+    except RuntimeError:
+        pass
+
+    return os.environ.get(key)
 
 
 def has(key: str) -> bool:
-    """Check if an opaque key exists in the session cache."""
-    cache = _get_cache()
-    return key in cache.get("secrets", {})
+    """Check if an opaque key exists in the session cache or as an environment variable."""
+    try:
+        cache = _get_cache()
+        if key in cache.get("secrets", {}):
+            return True
+    except RuntimeError:
+        pass
+
+    return key in os.environ
 
 
 def clear_cache():

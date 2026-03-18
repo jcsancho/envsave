@@ -15,10 +15,8 @@ eVault is a local encrypted vault that protects secrets from bulk discovery by L
 ```typescript
 import evault from "evault";
 
+// Works everywhere — vault locally, env var on Vercel/cloud
 const apiKey = evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f");
-if (!apiKey) {
-  throw new Error("Secret not found — is the vault session active?");
-}
 ```
 
 ### Python
@@ -26,9 +24,8 @@ if (!apiKey) {
 ```python
 import evault
 
+# Works everywhere — vault locally, env var on Vercel/cloud
 api_key = evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f")
-if api_key is None:
-    raise RuntimeError("Secret not found — is the vault session active?")
 ```
 
 ### CLI (for shell scripts)

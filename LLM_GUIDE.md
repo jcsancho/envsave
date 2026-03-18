@@ -58,13 +58,10 @@ evault reveal OPENAI_API_KEY
 ```typescript
 import evault from "evault";
 
-// Retrieve a secret by its opaque key (no password needed)
+// Same code works everywhere:
+// - Local: reads from encrypted vault
+// - Vercel/cloud: reads from process.env.ev_7a3f2b1e9c8d4f6b2a1c3d5f
 const apiKey = evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f");
-
-// Check if a secret exists
-if (evault.has("ev_7a3f2b1e9c8d4f6b2a1c3d5f")) {
-  // use the secret
-}
 ```
 
 ### Python
@@ -72,12 +69,10 @@ if (evault.has("ev_7a3f2b1e9c8d4f6b2a1c3d5f")) {
 ```python
 import evault
 
-# Retrieve a secret by its opaque key (no password needed)
+# Same code works everywhere:
+# - Local: reads from encrypted vault
+# - Vercel/cloud: reads from os.environ["ev_7a3f2b1e9c8d4f6b2a1c3d5f"]
 api_key = evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f")
-
-# Check if a secret exists
-if evault.has("ev_7a3f2b1e9c8d4f6b2a1c3d5f"):
-    # use the secret
 ```
 
 **Python requirement**: `pip install cryptography`
@@ -91,12 +86,22 @@ evault get ev_7a3f2b1e9c8d4f6b2a1c3d5f
 
 ## API Reference
 
-| Function | Auth Required | Description |
-|----------|--------------|-------------|
-| `get(opaqueKey)` | None (session) | Returns the secret value, or `undefined`/`None` |
-| `has(opaqueKey)` | None (session) | Returns `true`/`false` |
+| Function | Description |
+|----------|-------------|
+| `get(opaqueKey)` | Returns the secret from vault, or falls back to `process.env[opaqueKey]` |
+| `has(opaqueKey)` | Returns `true`/`false` — checks vault first, then env var |
 
-That's the entire LLM-facing API. Two functions, no password, no enumeration.
+Two functions, no password, no enumeration. Works locally via vault, works in the cloud via env vars.
+
+## Cloud Deployment (Vercel, etc.)
+
+On Vercel or any cloud platform, set the **opaque key as the environment variable name**:
+
+```
+ev_7a3f2b1e9c8d4f6b2a1c3d5f = sk-abc123...
+```
+
+Your code doesn't change — `evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f")` returns the value from the env var. The LLM sees the opaque key in the code but has no idea what the secret is for.
 
 ## Important Notes for LLMs
 
