@@ -5,8 +5,7 @@ import { homedir } from "node:os";
 const EVAULT_DIR = join(homedir(), ".evault");
 const LICENSE_FILE = join(EVAULT_DIR, "license.json");
 
-// TODO: Update this when the licensing webapp is deployed
-const LICENSE_API_URL = "https://evault.example.com/api/license/validate";
+const LICENSE_API_URL = process.env.EVAULT_LICENSE_API || "https://evault.example.com/api/license/validate";
 
 interface LicenseData {
   token: string;

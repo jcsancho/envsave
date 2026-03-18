@@ -27,6 +27,13 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Python
 __pycache__
+.venv
+venv
+
+# SQLite temp files
+*.db-wal
+*.db-shm
+*.db-journal
 
 # caches
 .eslintcache

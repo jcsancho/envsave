@@ -56,17 +56,17 @@ export function handleValidate(body: { token?: string }): Response {
   });
 }
 
-export function handleDashboard(body: { email?: string }): Response {
-  const { email } = body;
+export function handleDashboard(body: { email?: string; token?: string }): Response {
+  const { email, token } = body;
 
-  if (!email) {
-    return Response.json({ error: "Email is required" }, { status: 400 });
+  if (!email || !token) {
+    return Response.json({ error: "Email and token are required" }, { status: 400 });
   }
 
   const user = db.query<User, [string]>("SELECT * FROM users WHERE email = ?").get(email);
 
-  if (!user) {
-    return Response.json({ error: "User not found" }, { status: 404 });
+  if (!user || user.token !== token) {
+    return Response.json({ error: "Invalid email or token" }, { status: 403 });
   }
 
   return Response.json({
@@ -77,17 +77,17 @@ export function handleDashboard(body: { email?: string }): Response {
   });
 }
 
-export function handleRegenerate(body: { email?: string }): Response {
-  const { email } = body;
+export function handleRegenerate(body: { email?: string; token?: string }): Response {
+  const { email, token } = body;
 
-  if (!email) {
-    return Response.json({ error: "Email is required" }, { status: 400 });
+  if (!email || !token) {
+    return Response.json({ error: "Email and current token are required" }, { status: 400 });
   }
 
   const user = db.query<User, [string]>("SELECT * FROM users WHERE email = ?").get(email);
 
-  if (!user) {
-    return Response.json({ error: "User not found" }, { status: 404 });
+  if (!user || user.token !== token) {
+    return Response.json({ error: "Invalid email or token" }, { status: 403 });
   }
 
   const newToken = randomUUID();
