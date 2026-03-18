@@ -167,9 +167,8 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const password = await requirePassword();
-      setSecret(key, value, password);
-      console.log(`Secret '${key}' saved.`);
-      console.log(`\nUse 'evault reveal ${key}' with your password to get the obfuscated key for your code.`);
+      const obfuscated = setSecret(key, value, password);
+      console.log(`${obfuscated}`);
       break;
     }
 

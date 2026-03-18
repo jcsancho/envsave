@@ -103,7 +103,8 @@ export function initVault(password: string, envFile?: string): number {
   return count;
 }
 
-export function setSecret(key: string, value: string, password: string): void {
+/** Set a secret; returns the obfuscated key so user can copy it right away */
+export function setSecret(key: string, value: string, password: string): string {
   const data = readVault(password);
 
   // If alias exists, reuse the same obfuscated key; otherwise generate new
@@ -113,6 +114,7 @@ export function setSecret(key: string, value: string, password: string): void {
 
   writeVault(data, password);
   saveSessionKey(password);
+  return obfuscated;
 }
 
 /**
