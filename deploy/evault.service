@@ -1,0 +1,16 @@
+[Unit]
+Description=eVault License Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/evault
+ExecStart=/usr/local/bin/bun run webapp/server.ts
+Restart=always
+RestartSec=5
+Environment=EVAULT_PORT=3900
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

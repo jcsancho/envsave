@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up — eVault</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #151515;
+      border: 1px solid #252525;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      margin: 24px;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #fff; }
+    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
+    label { display: block; color: #999; font-size: 0.85rem; margin-bottom: 6px; }
+    input[type="email"] {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0a0a0a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e5e5e5;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus { border-color: #10b981; }
+    .btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      background: #10b981;
+      color: #000;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #34d399; }
+    .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .result {
+      margin-top: 24px;
+      padding: 16px;
+      background: #0a0a0a;
+      border: 1px solid #252525;
+      border-radius: 8px;
+      display: none;
+    }
+    .result.show { display: block; }
+    .result h3 { color: #10b981; font-size: 0.9rem; margin-bottom: 8px; }
+    .token-box {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+      color: #fff;
+      background: #111;
+      padding: 10px 14px;
+      border-radius: 6px;
+      word-break: break-all;
+      margin-bottom: 12px;
+      cursor: pointer;
+      position: relative;
+    }
+    .token-box:hover::after {
+      content: 'Click to copy';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #888;
+      font-size: 0.75rem;
+    }
+    .instructions { color: #888; font-size: 0.8rem; line-height: 1.5; }
+    .instructions code {
+      background: #111;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #10b981;
+    }
+    .error { color: #ef4444; font-size: 0.85rem; margin-top: 12px; display: none; }
+    .error.show { display: block; }
+    .back { display: block; margin-top: 20px; color: #888; text-decoration: none; font-size: 0.85rem; text-align: center; }
+    .back:hover { color: #e5e5e5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Get Your License</h1>
+    <p class="subtitle">Enter your email to receive an eVault license token.</p>
+
+    <form id="signup-form">
+      <label for="email">Email address</label>
+      <input type="email" id="email" name="email" placeholder="you@example.com" required>
+      <div class="error" id="error"></div>
+      <button type="submit" class="btn" id="submit-btn">Generate Token</button>
+    </form>
+
+    <div class="result" id="result">
+      <h3>Your License Token</h3>
+      <div class="token-box" id="token-display"></div>
+      <div class="instructions">
+        Run this in your terminal:<br>
+        <code>evault activate <span id="token-cmd"></span></code>
+      </div>
+    </div>
+
+    <a class="back" href="/">← Back to eVault</a>
+  </div>
+
+  <script>
+    const form = document.getElementById('signup-form');
+    const emailInput = document.getElementById('email');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorDiv = document.getElementById('error');
+    const resultDiv = document.getElementById('result');
+    const tokenDisplay = document.getElementById('token-display');
+    const tokenCmd = document.getElementById('token-cmd');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorDiv.classList.remove('show');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Generating...';
+
+      try {
+        const res = await fetch('/api/license/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailInput.value }),
+        });
+
+        const data = await res.json();
+
+        if (data.token) {
+          tokenDisplay.textContent = data.token;
+          tokenCmd.textContent = data.token;
+          resultDiv.classList.add('show');
+          form.style.display = 'none';
+        } else if (data.error) {
+          errorDiv.textContent = data.error;
+          errorDiv.classList.add('show');
+        }
+      } catch (err) {
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.classList.add('show');
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Generate Token';
+    });
+
+    // Click to copy token
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'token-display') {
+        navigator.clipboard.writeText(e.target.textContent);
+        e.target.style.borderColor = '#10b981';
+        setTimeout(() => e.target.style.borderColor = '', 1000);
+      }
+    });
+  </script>
+</body>
+</html>
