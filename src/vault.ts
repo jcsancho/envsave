@@ -10,12 +10,12 @@ const VAULT_FILE = join(EVAULT_DIR, "vault.enc");
 const SESSION_FILE = join(EVAULT_DIR, ".session");
 
 const SUFFIX_LENGTH = 12;
-const SUFFIX_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+const SUFFIX_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 interface VaultData {
   // Obfuscated key → value (e.g. "OPENAI_API_KEY_a7Bx#9mK2pQ1" → "sk-...")
   secrets: Record<string, string>;
-  // Clean name → obfuscated key (for user reference only)
+  // Clean name → obfuscated key (only accessible with password)
   aliases: Record<string, string>;
 }
 
@@ -79,14 +79,13 @@ export function getSessionPassword(): string | null {
   }
 }
 
-/** Init vault; returns list of [cleanName, obfuscatedKey] for imported keys */
-export function initVault(password: string, envFile?: string): Array<[string, string]> {
+export function initVault(password: string, envFile?: string): number {
   if (vaultExists()) {
     throw new Error("Vault already exists. Delete ~/.evault/vault.enc to reinitialize.");
   }
 
   const data: VaultData = { secrets: {}, aliases: {} };
-  const imported: Array<[string, string]> = [];
+  let count = 0;
 
   if (envFile) {
     const envSecrets = parseEnvFile(envFile);
@@ -94,18 +93,17 @@ export function initVault(password: string, envFile?: string): Array<[string, st
       const obfuscated = obfuscateKey(key);
       data.secrets[obfuscated] = value;
       data.aliases[key] = obfuscated;
-      imported.push([key, obfuscated]);
+      count++;
     }
   }
 
   writeVault(data, password);
   saveSessionKey(password);
   chmodSync(EVAULT_DIR, 0o700);
-  return imported;
+  return count;
 }
 
-/** Set a secret; returns the obfuscated key the user should use in code */
-export function setSecret(key: string, value: string, password: string): string {
+export function setSecret(key: string, value: string, password: string): void {
   const data = readVault(password);
 
   // If alias exists, reuse the same obfuscated key; otherwise generate new
@@ -115,12 +113,21 @@ export function setSecret(key: string, value: string, password: string): string 
 
   writeVault(data, password);
   saveSessionKey(password);
-  return obfuscated;
+}
+
+/**
+ * Reveal the obfuscated key for a clean name. REQUIRES PASSWORD.
+ * This is the only way to discover the obfuscated key name.
+ */
+export function revealKey(cleanName: string, password: string): string | undefined {
+  const data = readVault(password);
+  return data.aliases[cleanName];
 }
 
 /**
  * Get a secret by its OBFUSCATED key (the one with the random suffix).
- * This is what users put in their code — LLMs can't guess this.
+ * NO PASSWORD NEEDED — but you must know the exact obfuscated key.
+ * LLMs can't guess this because of the 12-char random suffix.
  */
 export function getSecret(obfuscatedKey: string, password: string): string | undefined {
   const data = readVault(password);
@@ -137,27 +144,27 @@ export function deleteSecret(key: string, password: string): boolean {
   return true;
 }
 
-/** List all keys — returns [cleanName, obfuscatedKey] pairs */
-export function listKeys(password: string): Array<[string, string]> {
+/** List clean key names only (no obfuscated keys revealed) */
+export function listKeys(password: string): string[] {
   const data = readVault(password);
-  return Object.entries(data.aliases);
+  return Object.keys(data.aliases);
 }
 
-/** Import from .env; returns [cleanName, obfuscatedKey] pairs */
-export function importEnv(filePath: string, password: string): Array<[string, string]> {
+/** Import from .env; returns count of imported secrets */
+export function importEnv(filePath: string, password: string): number {
   const envSecrets = parseEnvFile(filePath);
   const data = readVault(password);
 
-  const imported: Array<[string, string]> = [];
+  let count = 0;
   for (const [key, value] of Object.entries(envSecrets)) {
     const obfuscated = data.aliases[key] ?? obfuscateKey(key);
     data.secrets[obfuscated] = value;
     data.aliases[key] = obfuscated;
-    imported.push([key, obfuscated]);
+    count++;
   }
 
   writeVault(data, password);
-  return imported;
+  return count;
 }
 
 export function exportEnv(password: string): string {
@@ -169,7 +176,7 @@ export function exportEnv(password: string): string {
 
 /**
  * Library get() — uses the OBFUSCATED key (with random suffix).
- * Users must use the exact key shown by `evault set` or `evault list`.
+ * Users must know the exact obfuscated key from `evault reveal`.
  */
 export function getSecretWithSession(obfuscatedKey: string): string | undefined {
   const password = getSessionPassword();

@@ -10,6 +10,7 @@ import {
   listKeys,
   importEnv,
   exportEnv,
+  revealKey,
   vaultExists,
   getSessionPassword,
   saveSessionKey,
@@ -26,17 +27,21 @@ eVault — Local Secret Vault for LLM-Safe Environments
 Usage:
   evault activate <token>    Activate license
   evault init [--env <file>] Initialize vault (optionally import .env)
-  evault set <key> <value>   Add/update a secret (prints obfuscated key)
-  evault get <obfuscated>    Retrieve a secret using its obfuscated key
-  evault delete <key>        Remove a secret by clean name
-  evault list                List all keys (clean name → obfuscated key)
-  evault import <file>       Import from .env file (prints obfuscated keys)
-  evault export              Export all secrets as .env format
+  evault set <key> <value>   Add/update a secret (password required)
+  evault get <obfuscated>    Retrieve a secret value (no password needed)
+  evault reveal <key>        Show the obfuscated key name (password required)
+  evault delete <key>        Remove a secret (password required)
+  evault list                List clean key names (password required)
+  evault import <file>       Import from .env file (password required)
+  evault export              Export all secrets as .env format (password required)
   evault help                Show this help
 
-The obfuscated key (with random suffix) is what you use in your code:
-  const apiKey = evault.get("OPENAI_API_KEY_a7Bx#9mK2pQ1");
-This makes it impossible for LLMs to guess your secret names.
+Security model:
+  1. evault set OPENAI_API_KEY sk-...    → stores with random suffix
+  2. evault reveal OPENAI_API_KEY        → shows: OPENAI_API_KEY_a7Bx#9mK2pQ1
+  3. evault.get("OPENAI_API_KEY_a7Bx#9mK2pQ1")  → returns value in code
+
+  LLMs cannot discover the obfuscated key without your master password.
 `);
 }
 
@@ -48,7 +53,6 @@ async function promptPassword(prompt = "Master password: "): Promise<string> {
       terminal: true,
     });
 
-    // Hide input
     process.stderr.write(prompt);
     const stdin = process.stdin;
     const wasRaw = stdin.isRaw;
@@ -68,10 +72,8 @@ async function promptPassword(prompt = "Master password: "): Promise<string> {
         rl.close();
         resolve(password);
       } else if (c === "\u0003") {
-        // Ctrl+C
         process.exit(1);
       } else if (c === "\u007F" || c === "\b") {
-        // Backspace
         password = password.slice(0, -1);
       } else {
         password += c;
@@ -147,14 +149,11 @@ async function main(): Promise<void> {
         process.exit(1);
       }
 
-      const imported = initVault(password, envFile);
+      const count = initVault(password, envFile);
       console.log("Vault initialized successfully!");
-      if (imported.length > 0) {
-        console.log(`\nImported ${imported.length} secrets. Use these obfuscated keys in your code:\n`);
-        for (const [clean, obfuscated] of imported) {
-          console.log(`  ${clean} → ${obfuscated}`);
-        }
-        console.log(`\nExample: evault.get("${imported[0]![1]}")`);
+      if (count > 0) {
+        console.log(`Imported ${count} secrets from ${envFile}`);
+        console.log(`\nUse 'evault reveal <KEY>' with your password to get the obfuscated key for each secret.`);
       }
       break;
     }
@@ -168,10 +167,27 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const password = await requirePassword();
-      const obfuscated = setSecret(key, value, password);
-      console.log(`Secret stored. Use this key in your code:\n`);
-      console.log(`  ${obfuscated}`);
-      console.log(`\nExample: evault.get("${obfuscated}")`);
+      setSecret(key, value, password);
+      console.log(`Secret '${key}' saved.`);
+      console.log(`\nUse 'evault reveal ${key}' with your password to get the obfuscated key for your code.`);
+      break;
+    }
+
+    case "reveal": {
+      requireLicense();
+      const key = args[1];
+      if (!key) {
+        console.error("Usage: evault reveal <key>");
+        process.exit(1);
+      }
+      const password = await requirePassword();
+      const obfuscated = revealKey(key, password);
+      if (obfuscated) {
+        console.log(obfuscated);
+      } else {
+        console.error(`Secret '${key}' not found.`);
+        process.exit(1);
+      }
       break;
     }
 
@@ -182,7 +198,7 @@ async function main(): Promise<void> {
         console.error("Usage: evault get <obfuscated_key>");
         process.exit(1);
       }
-      // Try session password first (no prompt)
+      // Try session password first (no prompt needed for get)
       const sessionPw = getSessionPassword();
       if (sessionPw) {
         try {
@@ -190,7 +206,7 @@ async function main(): Promise<void> {
           if (value !== undefined) {
             process.stdout.write(value);
           } else {
-            console.error(`Secret '${key}' not found. Use the full obfuscated key from 'evault list'.`);
+            console.error(`Secret not found. Make sure you're using the full obfuscated key from 'evault reveal'.`);
             process.exit(1);
           }
           break;
@@ -204,7 +220,7 @@ async function main(): Promise<void> {
         saveSessionKey(password);
         process.stdout.write(val);
       } else {
-        console.error(`Secret '${key}' not found. Use the full obfuscated key from 'evault list'.`);
+        console.error(`Secret not found. Make sure you're using the full obfuscated key from 'evault reveal'.`);
         process.exit(1);
       }
       break;
@@ -235,10 +251,10 @@ async function main(): Promise<void> {
       if (keys.length === 0) {
         console.log("No secrets stored.");
       } else {
-        console.log("Clean Name → Obfuscated Key (use the right side in your code)\n");
-        for (const [clean, obfuscated] of keys) {
-          console.log(`  ${clean} → ${obfuscated}`);
+        for (const k of keys) {
+          console.log(k);
         }
+        console.log(`\n${keys.length} secret(s). Use 'evault reveal <KEY>' to get the obfuscated key.`);
       }
       break;
     }
@@ -255,11 +271,9 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const password = await requirePassword();
-      const imported = importEnv(file, password);
-      console.log(`Imported ${imported.length} secrets. Use these obfuscated keys in your code:\n`);
-      for (const [clean, obfuscated] of imported) {
-        console.log(`  ${clean} → ${obfuscated}`);
-      }
+      const count = importEnv(file, password);
+      console.log(`Imported ${count} secrets from ${file}`);
+      console.log(`\nUse 'evault reveal <KEY>' with your password to get the obfuscated key for each secret.`);
       break;
     }
 
