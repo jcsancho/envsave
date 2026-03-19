@@ -1,9 +1,10 @@
-import { handleRegister, handleValidate, handleDashboard, handleRegenerate } from "./api/license.ts";
+import { handleRegister, handleValidate, handleDashboard, handleRegenerate, handleRenew } from "./api/license.ts";
+import { handleVaultBackup, handleVaultDownload, handleVaultStatus } from "./api/vault.ts";
 import indexPage from "./pages/index.html";
 import signupPage from "./pages/signup.html";
 import dashboardPage from "./pages/dashboard.html";
 
-const PORT = Number(process.env.EVAULT_PORT) || 3900;
+const PORT = Number(process.env.ENVSAVE_PORT) || 3900;
 
 async function parseJson(req: Request): Promise<Record<string, unknown>> {
   try {
@@ -44,7 +45,29 @@ Bun.serve({
         return handleRegenerate(body as { email?: string });
       },
     },
+    "/api/license/renew": {
+      POST: async (req) => {
+        const body = await parseJson(req);
+        return handleRenew(body as { token?: string });
+      },
+    },
+
+    "/api/vault/backup": {
+      POST: async (req) => handleVaultBackup(req),
+    },
+    "/api/vault/download": {
+      POST: (req) => {
+        const token = req.headers.get("authorization")?.replace("Bearer ", "");
+        return handleVaultDownload(token);
+      },
+    },
+    "/api/vault/status": {
+      POST: (req) => {
+        const token = req.headers.get("authorization")?.replace("Bearer ", "");
+        return handleVaultStatus(token);
+      },
+    },
   },
 });
 
-console.log(`eVault License Server running on http://localhost:${PORT}`);
+console.log(`EnvSave License Server running on http://localhost:${PORT}`);

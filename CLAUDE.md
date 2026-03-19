@@ -1,15 +1,16 @@
-# eVault — Local Secret Vault for LLM-Safe Environments
+# EnvSave — Local Secret Vault for LLM-Safe Environments
 
-npm package name: `evault` (local folder: `safebox/`)
+npm package name: `envsave`
 
 ## Architecture
 - `src/crypto.ts` — AES-256-GCM + PBKDF2 key derivation
-- `src/vault.ts` — Vault CRUD (read/write/encrypt/decrypt `~/.evault/vault.enc`)
+- `src/vault.ts` — Vault CRUD (read/write/encrypt/decrypt `~/.envsave/vault.enc`)
 - `src/env-parser.ts` — `.env` file parser
-- `src/license.ts` — License token validation against webapp API
-- `src/cli.ts` — CLI entry point (`bin: "evault"`)
+- `src/license.ts` — License token validation + auto-renewal against webapp API
+- `src/cli.ts` — CLI entry point (`bin: "envsave"`)
 - `src/index.ts` — Library API: `get()`, `has()`
-- `python/evault.py` — Python bridge (reads same vault file)
+- `python/envsave.py` — Python bridge (reads same vault file)
+- `webapp/api/vault.ts` — Server-side vault backup/download/status API
 
 ## Vault Format
 Binary: `salt (32B) | iv (12B) | encrypted_data | auth_tag (16B)`

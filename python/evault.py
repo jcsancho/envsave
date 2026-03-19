@@ -1,13 +1,13 @@
 """
-eVault Python Bridge — reads the session cache (NOT the main vault).
+EnvSave Python Bridge — reads the session cache (NOT the main vault).
 
 The session cache contains only the secrets map (opaque_key → value).
 No aliases, no HMAC seed, no registry — an LLM reading this file
 can only access secrets whose opaque key it already knows.
 
 Usage:
-    import evault
-    api_key = evault.get("ev_7a3f2b1e9c8d4f6b2a1c3d5f")
+    import envsave
+    api_key = envsave.get("es_7a3f2b1e9c8d4f6b2a1c3d5f")
 
 Requirements:
     pip install cryptography
@@ -19,9 +19,9 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-EVAULT_DIR = Path.home() / ".evault"
-CACHE_FILE = EVAULT_DIR / "cache.enc"
-SESSION_FILE = EVAULT_DIR / ".session"
+ENVSAVE_DIR = Path.home() / ".envsave"
+CACHE_FILE = ENVSAVE_DIR / "cache.enc"
+SESSION_FILE = ENVSAVE_DIR / ".session"
 
 IV_LENGTH = 12
 
@@ -29,7 +29,7 @@ IV_LENGTH = 12
 def _decrypt_cache() -> dict:
     """Decrypt session cache using random session key (NOT the master password)."""
     if not SESSION_FILE.exists() or not CACHE_FILE.exists():
-        raise RuntimeError("No session found. Run any evault command with your password first.")
+        raise RuntimeError("No session found. Run any envsave command with your password first.")
 
     session_key_hex = SESSION_FILE.read_text().strip()
     session_key = bytes.fromhex(session_key_hex)

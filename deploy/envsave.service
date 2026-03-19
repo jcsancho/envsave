@@ -1,15 +1,15 @@
 [Unit]
-Description=eVault License Server
+Description=EnvSave License Server
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/opt/evault
+WorkingDirectory=/opt/envsave
 ExecStart=/usr/local/bin/bun run webapp/server.ts
 Restart=always
 RestartSec=5
-Environment=EVAULT_PORT=3900
+Environment=ENVSAVE_PORT=3900
 Environment=NODE_ENV=production
 
 [Install]

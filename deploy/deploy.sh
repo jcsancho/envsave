@@ -1,13 +1,13 @@
 #!/bin/bash
-# Deploy eVault to example.com VPS
+# Deploy EnvSave to example.com VPS
 # Usage: ssh deploy@example.com 'bash -s' < deploy/deploy.sh
 
 set -e
 
-APP_DIR="/opt/evault"
-REPO="https://github.com/jcsancho/safebox.git"
+APP_DIR="/opt/envsave"
+REPO="https://github.com/jcsancho/envsave.git"
 
-echo "=== Deploying eVault ==="
+echo "=== Deploying EnvSave ==="
 
 # Clone or pull
 if [ -d "$APP_DIR" ]; then
@@ -22,20 +22,20 @@ fi
 bun install --production
 
 # Copy nginx config
-cp deploy/nginx.conf /etc/nginx/sites-available/evault
-ln -sf /etc/nginx/sites-available/evault /etc/nginx/sites-enabled/evault
+cp deploy/nginx.conf /etc/nginx/sites-available/envsave
+ln -sf /etc/nginx/sites-available/envsave /etc/nginx/sites-enabled/envsave
 
 # SSL cert (first time only)
-if [ ! -d "/etc/letsencrypt/live/evault.example.com" ]; then
-  certbot --nginx -d evault.example.com --non-interactive --agree-tos -m admin@example.com
+if [ ! -d "/etc/letsencrypt/live/envsave.example.com" ]; then
+  certbot --nginx -d envsave.example.com --non-interactive --agree-tos -m admin@example.com
 fi
 
 nginx -t && systemctl reload nginx
 
 # Copy and start service
-cp deploy/evault.service /etc/systemd/system/evault.service
+cp deploy/envsave.service /etc/systemd/system/envsave.service
 systemctl daemon-reload
-systemctl enable evault
-systemctl restart evault
+systemctl enable envsave
+systemctl restart envsave
 
-echo "=== eVault deployed at https://evault.example.com ==="
+echo "=== EnvSave deployed at https://envsave.example.com ==="

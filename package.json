@@ -1,18 +1,19 @@
 {
-  "name": "evault",
-  "version": "1.0.0",
+  "name": "envsave",
+  "version": "1.0.5",
   "description": "Local secret vault for LLM-safe environments — encrypted secrets that agents can't bulk-discover",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "evault": "dist/cli.js"
+    "envsave": "dist/cli.js"
   },
   "files": [
     "dist",
     "python"
   ],
   "scripts": {
+    "prebuild": "bun -e \"const p=require('./package.json');const v=p.version.split('.');v[2]=+v[2]+1;p.version=v.join('.');require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "build": "bun build src/cli.ts --outdir dist --target node --format esm && bun build src/index.ts --outdir dist --target node --format esm --outfile dist/index.js",
     "dev": "bun run src/cli.ts",
     "webapp": "bun run webapp/server.ts",
@@ -25,12 +26,19 @@
   "peerDependencies": {
     "typescript": "^5"
   },
-  "keywords": ["vault", "secrets", "encryption", "llm", "security", "env"],
+  "keywords": [
+    "vault",
+    "secrets",
+    "encryption",
+    "llm",
+    "security",
+    "env"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jcsancho/safebox.git"
+    "url": "git+https://github.com/jcsancho/envsave.git"
   },
-  "homepage": "https://evault.example.com",
+  "homepage": "https://envsave.example.com",
   "author": "Jose C Sancho"
 }

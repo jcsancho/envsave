@@ -5,10 +5,10 @@ import { randomBytes } from "node:crypto";
 import { encrypt, decrypt, encryptWithKey, decryptWithKey, hmacSha256 } from "./crypto.ts";
 import { parseEnvFile } from "./env-parser.ts";
 
-const EVAULT_DIR = join(homedir(), ".evault");
-const VAULT_FILE = join(EVAULT_DIR, "vault.enc");    // Main vault (password-encrypted)
-const CACHE_FILE = join(EVAULT_DIR, "cache.enc");    // Session cache (random-key-encrypted)
-const SESSION_FILE = join(EVAULT_DIR, ".session");    // Random session key (NOT the password)
+const ENVSAVE_DIR = join(homedir(), ".envsave");
+const VAULT_FILE = join(ENVSAVE_DIR, "vault.enc");    // Main vault (password-encrypted)
+const CACHE_FILE = join(ENVSAVE_DIR, "cache.enc");    // Session cache (random-key-encrypted)
+const SESSION_FILE = join(ENVSAVE_DIR, ".session");    // Random session key (NOT the password)
 
 /**
  * Main vault — only accessible with master password.
@@ -33,7 +33,7 @@ interface SessionCache {
 }
 
 /**
- * Compute a fully opaque key name: HMAC-SHA256(seed, cleanName) → "ev_" + 24 hex chars.
+ * Compute a fully opaque key name: HMAC-SHA256(seed, cleanName) → "es_" + 24 hex chars.
  * No trace of the original name. Impossible to reverse without the seed.
  * If SSH key is configured, the seed is further derived from the SSH key content.
  */
@@ -44,12 +44,12 @@ function computeOpaqueName(hmacSeed: string, cleanName: string, sshKeyContent?: 
     effectiveSeed = hmacSha256(hmacSeed, sshKeyContent);
   }
   const hash = hmacSha256(effectiveSeed, cleanName);
-  return "ev_" + hash.slice(0, 24);
+  return "es_" + hash.slice(0, 24);
 }
 
 function ensureDir(): void {
-  if (!existsSync(EVAULT_DIR)) {
-    mkdirSync(EVAULT_DIR, { recursive: true, mode: 0o700 });
+  if (!existsSync(ENVSAVE_DIR)) {
+    mkdirSync(ENVSAVE_DIR, { recursive: true, mode: 0o700 });
   }
 }
 
@@ -60,13 +60,13 @@ export function vaultExists(): boolean {
 /** Read main vault (requires master password) */
 function readMainVault(password: string): MainVault {
   if (!existsSync(VAULT_FILE)) {
-    throw new Error("Vault not found. Run 'evault init' first.");
+    throw new Error("Vault not found. Run 'envsave init' first.");
   }
   const payload = readFileSync(VAULT_FILE);
   const json = decrypt(payload, password);
   const data = JSON.parse(json);
   if (!data.version || data.version < 2) {
-    throw new Error("Vault format outdated. Delete ~/.evault/ and re-initialize.");
+    throw new Error("Vault format outdated. Delete ~/.envsave/ and re-initialize.");
   }
   return data as MainVault;
 }
@@ -119,7 +119,7 @@ function loadSshKey(vault: MainVault): string | undefined {
 
 export function initVault(password: string, options?: { envFile?: string; sshKeyPath?: string }): number {
   if (vaultExists()) {
-    throw new Error("Vault already exists. Delete ~/.evault/vault.enc to reinitialize.");
+    throw new Error("Vault already exists. Delete ~/.envsave/vault.enc to reinitialize.");
   }
 
   // Validate SSH key exists before creating vault
@@ -151,7 +151,7 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
 
   writeMainVault(vault, password);
   writeSessionCache(vault.secrets);
-  chmodSync(EVAULT_DIR, 0o700);
+  chmodSync(ENVSAVE_DIR, 0o700);
   return count;
 }
 
@@ -183,7 +183,7 @@ export function revealKey(cleanName: string, password: string): string | undefin
 export function getSecretFromCache(opaqueKey: string): string | undefined {
   const cache = readSessionCache();
   if (!cache) {
-    throw new Error("No session found. Run any evault command with your password first.");
+    throw new Error("No session found. Run any envsave command with your password first.");
   }
   return cache.secrets[opaqueKey];
 }

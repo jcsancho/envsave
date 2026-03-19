@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>eVault — Local Secret Vault for LLM-Safe Environments</title>
+  <title>EnvSave — Local Secret Vault for LLM-Safe Environments</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -62,7 +62,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>eVault</h1>
+    <h1>EnvSave</h1>
     <p class="tagline">Local secret vault for LLM-safe environments.<br>Encrypted secrets that AI agents can't bulk-discover.</p>
 
     <div class="feature-grid">
@@ -82,19 +82,19 @@
 
     <div class="code-block">
       <span class="comment"># Install and initialize</span><br>
-      <span class="cmd">npm install -g evault</span><br>
-      <span class="cmd">evault activate &lt;your-token&gt;</span><br>
-      <span class="cmd">evault init --env .env</span><br><br>
+      <span class="cmd">npm install -g envsave</span><br>
+      <span class="cmd">envsave activate &lt;your-token&gt;</span><br>
+      <span class="cmd">envsave init --env .env</span><br><br>
       <span class="comment"># Use in your code</span><br>
-      <span class="cmd">const evault = require('evault');</span><br>
-      <span class="cmd">const key = evault.get("OPENAI_API_KEY");</span>
+      <span class="cmd">const envsave = require('envsave');</span><br>
+      <span class="cmd">const key = envsave.get("OPENAI_API_KEY");</span>
     </div>
 
     <a class="cta" href="/signup">Get Your License Token</a>
     <a class="secondary-link" href="/dashboard">Already registered? Dashboard →</a>
 
     <div class="footer">
-      <p>eVault — built for developers who run AI agents locally.</p>
+      <p>EnvSave — built for developers who run AI agents locally.</p>
     </div>
   </div>
 </body>

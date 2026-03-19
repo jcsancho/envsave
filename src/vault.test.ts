@@ -19,10 +19,10 @@ import {
   exportEnv,
 } from "./vault.ts";
 
-const EVAULT_DIR = join(homedir(), ".evault");
+const ENVSAVE_DIR = join(homedir(), ".envsave");
 
 function cleanup(): void {
-  execSync(`rm -rf ${EVAULT_DIR}`);
+  execSync(`rm -rf ${ENVSAVE_DIR}`);
 }
 
 // ─── crypto.ts ───
@@ -132,9 +132,9 @@ describe("vault", () => {
   describe("initVault", () => {
     test("creates vault files", () => {
       initVault(PASSWORD);
-      expect(existsSync(join(EVAULT_DIR, "vault.enc"))).toBe(true);
-      expect(existsSync(join(EVAULT_DIR, "cache.enc"))).toBe(true);
-      expect(existsSync(join(EVAULT_DIR, ".session"))).toBe(true);
+      expect(existsSync(join(ENVSAVE_DIR, "vault.enc"))).toBe(true);
+      expect(existsSync(join(ENVSAVE_DIR, "cache.enc"))).toBe(true);
+      expect(existsSync(join(ENVSAVE_DIR, ".session"))).toBe(true);
     });
 
     test("with envFile imports secrets", () => {
@@ -152,10 +152,10 @@ describe("vault", () => {
       writeFileSync(sshKeyFile, "ssh-rsa AAAAB3FakeKeyContent test@test");
       initVault(PASSWORD, { sshKeyPath: sshKeyFile });
       // Verify vault was created and is functional
-      expect(existsSync(join(EVAULT_DIR, "vault.enc"))).toBe(true);
+      expect(existsSync(join(ENVSAVE_DIR, "vault.enc"))).toBe(true);
       // Set and retrieve a secret to confirm SSH key factor works
       const opaque = setSecret("MY_KEY", "my_value", PASSWORD);
-      expect(opaque.startsWith("ev_")).toBe(true);
+      expect(opaque.startsWith("es_")).toBe(true);
     });
   });
 
@@ -163,8 +163,8 @@ describe("vault", () => {
     test("returns opaque key with ev_ prefix and 27 chars", () => {
       initVault(PASSWORD);
       const opaque = setSecret("API_KEY", "secret123", PASSWORD);
-      expect(opaque.startsWith("ev_")).toBe(true);
-      expect(opaque.length).toBe(27); // "ev_" (3) + 24 hex chars
+      expect(opaque.startsWith("es_")).toBe(true);
+      expect(opaque.length).toBe(27); // "es_" (3) + 24 hex chars
     });
 
     test("same key returns same opaque key", () => {
@@ -230,7 +230,7 @@ describe("vault", () => {
       expect(keys).toEqual(["ALPHA", "BETA"]);
       // No opaque names in the list
       for (const k of keys) {
-        expect(k.startsWith("ev_")).toBe(false);
+        expect(k.startsWith("es_")).toBe(false);
       }
     });
   });
@@ -286,9 +286,9 @@ describe("vault", () => {
       setSecret("SECRET_B", "bbb", PASSWORD);
 
       // Read and decrypt the cache directly
-      const sessionKeyHex = readFileSync(join(EVAULT_DIR, ".session"), "utf8").trim();
+      const sessionKeyHex = readFileSync(join(ENVSAVE_DIR, ".session"), "utf8").trim();
       const sessionKey = Buffer.from(sessionKeyHex, "hex");
-      const payload = readFileSync(join(EVAULT_DIR, "cache.enc"));
+      const payload = readFileSync(join(ENVSAVE_DIR, "cache.enc"));
       const json = decryptWithKey(payload, sessionKey);
       const cache = JSON.parse(json);
 
@@ -301,7 +301,7 @@ describe("vault", () => {
 
       // Keys inside secrets must be opaque (ev_ prefix)
       for (const key of Object.keys(cache.secrets)) {
-        expect(key.startsWith("ev_")).toBe(true);
+        expect(key.startsWith("es_")).toBe(true);
       }
 
       // Clean names must NOT appear anywhere in the raw JSON
