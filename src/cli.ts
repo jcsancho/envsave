@@ -67,7 +67,7 @@ async function promptPassword(prompt = "Master password: "): Promise<string> {
     const rl = createInterface({
       input: process.stdin,
       output: process.stderr,
-      terminal: true,
+      terminal: false,
     });
 
     process.stderr.write(prompt);
