@@ -10,6 +10,7 @@ import {
   setSecret,
   getSecret,
   getSecretFromCache,
+  showSecret,
   deleteSecret,
   listKeys,
   searchKeys,
@@ -34,6 +35,7 @@ Usage:
   envsave init [--env <f>] [--ssh-key <f>]  Initialize vault
   envsave set <key> <value>             Add/update a secret (outputs opaque key)
   envsave get <opaque_key>              Retrieve a value (no password needed)
+  envsave show <key>                    Show real value by key name (password required)
   envsave reveal <key> [key2] [key3]... Show opaque key name(s) (password required)
   envsave delete <key>                  Remove a secret (password required)
   envsave search <keyword>              Search keys matching keyword (no password)
@@ -223,6 +225,24 @@ async function main(): Promise<void> {
       }
       if (keys.length > 1 && notFound === 0) console.log();
       if (notFound > 0 && notFound === keys.length) process.exit(1);
+      break;
+    }
+
+    case "show": {
+      await requireLicense();
+      const key = args[1];
+      if (!key) {
+        console.error("Usage: envsave show <key>");
+        process.exit(1);
+      }
+      const password = await requirePassword();
+      const val = showSecret(key, password);
+      if (val !== undefined) {
+        console.log(`\n  ${key} = ${val}\n`);
+      } else {
+        console.error(`Secret '${key}' not found.`);
+        process.exit(1);
+      }
       break;
     }
 

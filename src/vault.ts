@@ -300,6 +300,15 @@ export function setSecret(key: string, value: string, password: string): string 
   return opaque;
 }
 
+/** Show the real value of a secret by clean name. REQUIRES PASSWORD. */
+export function showSecret(cleanName: string, password: string): string | undefined {
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  const opaque = computeOpaqueName(vault.hmacSeed, cleanName, sshKeyContent);
+  writeSessionCache(vault.secrets, vault.registry);
+  return vault.secrets[opaque];
+}
+
 /** Reveal the opaque key for a clean name. REQUIRES PASSWORD + SSH KEY. */
 export function revealKey(cleanName: string, password: string): string | undefined {
   const vault = readMainVault(password);
