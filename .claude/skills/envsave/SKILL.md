@@ -61,7 +61,7 @@ Wait for opaque keys. Then:
 1. Replace `process.env.XXX` / `os.getenv("XXX")` with `envsave.get("es_actual_key")`
 2. Add `import envsave from "envsave"` (TS/JS) or `import envsave` (Python) if missing
 3. Remove `dotenv`/`load_dotenv` imports and `.config()` calls
-4. Note `.env` files that can be deleted (don't delete — let user decide)
+4. List all `.env*` files found (`.env`, `.env.local`, `.env.production`, etc.) and **tell the user they must delete them** — these files contain real secrets in plain text and are no longer needed after migration to envsave. Add them to `.gitignore` if not already there.
 
 **IMPORTANT: Always use `envsave.get("es_...")` directly — the full module call. Never create wrapper functions like `envsave_get()`, `get_secret()`, `_get_env()`, or similar. The call should always be `envsave.get("es_...")` exactly.**
 

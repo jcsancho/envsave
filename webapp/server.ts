@@ -1,57 +1,85 @@
-import { handleRegister, handleValidate, handleDashboard, handleRegenerate, handleRenew } from "./api/license.ts";
-import { handleVaultBackup, handleVaultDownload, handleVaultStatus } from "./api/vault.ts";
-import indexPage from "./pages/index.html";
-import signupPage from "./pages/signup.html";
-import dashboardPage from "./pages/dashboard.html";
+import { verifyClerkSession, getClerkUserEmail, CLERK_PUBLISHABLE_KEY } from "./auth.ts";
+import {
+  handleVaultBackup,
+  handleVaultDownload,
+  handleVaultStatus,
+  handleProvisionToken,
+  handleRegenerateToken,
+  handleRenewToken,
+  handleValidateToken,
+} from "./api/vault.ts";
 
 const PORT = Number(process.env.ENVSAVE_PORT) || 3900;
 
 async function parseJson(req: Request): Promise<Record<string, unknown>> {
   try {
-    return await req.json() as Record<string, unknown>;
+    return (await req.json()) as Record<string, unknown>;
   } catch {
     return {};
   }
 }
 
+// Inject Clerk publishable key into HTML pages
+function injectClerkKey(html: string): string {
+  return html.replace("__CLERK_PUBLISHABLE_KEY__", CLERK_PUBLISHABLE_KEY);
+}
+
+// Read HTML files
+const indexHtml = await Bun.file(import.meta.dir + "/pages/index.html").text();
+const dashboardHtml = await Bun.file(import.meta.dir + "/pages/dashboard.html").text();
+
 Bun.serve({
   port: PORT,
   routes: {
-    "/": indexPage,
-    "/signup": signupPage,
-    "/dashboard": dashboardPage,
+    // Pages
+    "/": () => new Response(injectClerkKey(indexHtml), {
+      headers: { "Content-Type": "text/html" },
+    }),
+    "/dashboard": () => new Response(injectClerkKey(dashboardHtml), {
+      headers: { "Content-Type": "text/html" },
+    }),
 
-    "/api/license/register": {
+    // Clerk-authenticated API: provision/regenerate token
+    "/api/token/provision": {
       POST: async (req) => {
-        const body = await parseJson(req);
-        return handleRegister(body as { email?: string });
+        const clerkId = await verifyClerkSession(req);
+        if (!clerkId) {
+          return Response.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const email = await getClerkUserEmail(clerkId);
+        if (!email) {
+          return Response.json({ error: "Could not resolve email" }, { status: 400 });
+        }
+        return handleProvisionToken(clerkId, email);
       },
     },
+    "/api/token/regenerate": {
+      POST: async (req) => {
+        const clerkId = await verifyClerkSession(req);
+        if (!clerkId) {
+          return Response.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const email = await getClerkUserEmail(clerkId);
+        if (!email) {
+          return Response.json({ error: "Could not resolve email" }, { status: 400 });
+        }
+        return handleRegenerateToken(clerkId, email);
+      },
+    },
+
+    // CLI-facing APIs (Bearer token auth)
     "/api/license/validate": {
       POST: async (req) => {
         const body = await parseJson(req);
-        return handleValidate(body as { token?: string });
-      },
-    },
-    "/api/license/dashboard": {
-      POST: async (req) => {
-        const body = await parseJson(req);
-        return handleDashboard(body as { email?: string });
-      },
-    },
-    "/api/license/regenerate": {
-      POST: async (req) => {
-        const body = await parseJson(req);
-        return handleRegenerate(body as { email?: string });
+        return handleValidateToken(body as { token?: string });
       },
     },
     "/api/license/renew": {
       POST: async (req) => {
         const body = await parseJson(req);
-        return handleRenew(body as { token?: string });
+        return handleRenewToken(body as { token?: string });
       },
     },
-
     "/api/vault/backup": {
       POST: async (req) => handleVaultBackup(req),
     },
@@ -70,4 +98,4 @@ Bun.serve({
   },
 });
 
-console.log(`EnvSave License Server running on http://localhost:${PORT}`);
+console.log(`EnvSave running on http://localhost:${PORT}`);

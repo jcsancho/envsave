@@ -12,10 +12,13 @@ import {
   getSecretFromCache,
   deleteSecret,
   listKeys,
+  searchKeys,
   importEnv,
   exportEnv,
   revealKey,
   vaultExists,
+  configureRateLimit,
+  getRateLimitConfig,
 } from "./vault.ts";
 import { activateLicense, checkLicense, getLicenseToken } from "./license.ts";
 
@@ -33,6 +36,11 @@ Usage:
   envsave get <opaque_key>              Retrieve a value (no password needed)
   envsave reveal <key> [key2] [key3]... Show opaque key name(s) (password required)
   envsave delete <key>                  Remove a secret (password required)
+  envsave search <keyword>              Search keys matching keyword (no password)
+  envsave passwd                        Change master password
+  envsave config                        Show rate limit config
+  envsave config --max-gets <n>         Set max gets per minute (password required)
+  envsave config --session-ttl <hours>  Set session TTL in hours (password required)
   envsave list                          List clean key names (password required)
   envsave import <file>                 Import from .env file (password required)
   envsave export                        Export as .env format (password required)
@@ -260,6 +268,94 @@ async function main(): Promise<void> {
       } else {
         console.error(`Secret '${key}' not found.`);
         process.exit(1);
+      }
+      break;
+    }
+
+    case "config": {
+      await requireLicense();
+      const maxGets = getFlag("--max-gets");
+      const sessionTtl = getFlag("--session-ttl");
+      if (!maxGets && !sessionTtl) {
+        // Just show current config
+        const config = getRateLimitConfig();
+        console.log(`Rate limit config:`);
+        console.log(`  Max gets per minute: ${config.maxGetsPerMinute}`);
+        console.log(`  Session TTL: ${config.sessionTtlHours} hours`);
+        break;
+      }
+      const password = await requirePassword();
+      const options: { maxGetsPerMinute?: number; sessionTtlHours?: number } = {};
+      if (maxGets) options.maxGetsPerMinute = parseInt(maxGets, 10);
+      if (sessionTtl) options.sessionTtlHours = parseFloat(sessionTtl);
+      if (options.maxGetsPerMinute !== undefined && (isNaN(options.maxGetsPerMinute) || options.maxGetsPerMinute < 1)) {
+        console.error("--max-gets must be a positive number.");
+        process.exit(1);
+      }
+      if (options.sessionTtlHours !== undefined && (isNaN(options.sessionTtlHours) || options.sessionTtlHours <= 0)) {
+        console.error("--session-ttl must be a positive number.");
+        process.exit(1);
+      }
+      const config = configureRateLimit(password, options);
+      console.log(`Config updated:`);
+      console.log(`  Max gets per minute: ${config.maxGetsPerMinute}`);
+      console.log(`  Session TTL: ${config.sessionTtlHours} hours`);
+      break;
+    }
+
+    case "passwd": {
+      await requireLicense();
+      const oldPassword = await promptPassword("Current password: ");
+      if (!oldPassword) {
+        console.error("Password cannot be empty.");
+        process.exit(1);
+      }
+      // Verify old password works
+      try {
+        listKeys(oldPassword);
+      } catch {
+        console.error("Incorrect current password.");
+        process.exit(1);
+      }
+      const newPassword = await promptPassword("New password: ");
+      if (!newPassword) {
+        console.error("Password cannot be empty.");
+        process.exit(1);
+      }
+      const confirmNew = await promptPassword("Confirm new password: ");
+      if (newPassword !== confirmNew) {
+        console.error("Passwords do not match.");
+        process.exit(1);
+      }
+      const { changePassword } = await import("./vault.ts");
+      changePassword(oldPassword, newPassword);
+      console.log("Password changed successfully!");
+      break;
+    }
+
+    case "search": {
+      await requireLicense();
+      const keyword = args[1];
+      if (!keyword) {
+        console.error("Usage: envsave search <keyword>");
+        process.exit(1);
+      }
+      let matches: string[];
+      try {
+        matches = searchKeys(keyword);
+      } catch {
+        // No session — prompt for password to create one
+        const password = await requirePassword();
+        listKeys(password); // refreshes session cache with registry
+        matches = searchKeys(keyword);
+      }
+      if (matches.length === 0) {
+        console.log(`No keys matching "${keyword}".`);
+      } else {
+        for (const k of matches) {
+          console.log(k);
+        }
+        console.log(`\n${matches.length} key(s) matching "${keyword}".`);
       }
       break;
     }
@@ -558,6 +654,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error("Error:", err.message);
+  if (err.message?.includes("unable to authenticate data") || err.message?.includes("Unsupported state")) {
+    console.error("Incorrect password.");
+  } else {
+    console.error("Error:", err.message);
+  }
   process.exit(1);
 });

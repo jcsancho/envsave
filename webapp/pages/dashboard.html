@@ -4,223 +4,543 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — EnvSave</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #09090b;
+      --surface: #131316;
+      --surface-hover: #1a1a1f;
+      --border: #27272a;
+      --border-subtle: #1e1e22;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --accent: #10b981;
+      --accent-hover: #34d399;
+      --accent-glow: rgba(16, 185, 129, 0.15);
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --radius: 12px;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: #0a0a0a;
-      color: #e5e5e5;
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      -webkit-font-smoothing: antialiased;
     }
+
+    /* Nav */
+    nav {
+      background: rgba(9, 9, 11, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 14px 24px;
+    }
+    .nav-inner {
+      max-width: 900px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.1rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-brand svg { width: 28px; height: 28px; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    #user-info {
+      font-size: 0.85rem; color: var(--text-muted);
+    }
+    #sign-out-btn {
+      background: none; border: 1px solid var(--border);
+      color: var(--text-muted); padding: 6px 14px;
+      border-radius: 8px; font-size: 0.8rem; cursor: pointer;
+      font-weight: 500; transition: all 0.2s;
+    }
+    #sign-out-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+    /* Main */
+    .container {
+      max-width: 900px; margin: 0 auto;
+      padding: 48px 24px;
+    }
+    .page-title {
+      font-size: 1.8rem; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .page-desc {
+      color: var(--text-muted); font-size: 0.95rem;
+      margin-bottom: 40px;
+    }
+
+    /* Cards */
     .card {
-      background: #151515;
-      border: 1px solid #252525;
-      border-radius: 16px;
-      padding: 40px;
-      width: 100%;
-      max-width: 480px;
-      margin: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #fff; }
-    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
-    label { display: block; color: #999; font-size: 0.85rem; margin-bottom: 6px; }
-    input[type="email"], input[type="text"] {
-      width: 100%;
-      padding: 12px 16px;
-      background: #0a0a0a;
-      border: 1px solid #333;
-      border-radius: 8px;
-      color: #e5e5e5;
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
     }
-    input[type="email"]:focus, input[type="text"]:focus { border-color: #10b981; }
-    .field-gap { margin-top: 12px; }
-    .btn {
-      width: 100%;
-      margin-top: 16px;
-      padding: 12px;
-      background: #10b981;
-      color: #000;
-      font-weight: 600;
-      font-size: 1rem;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.2s;
+    .card-title {
+      font-size: 1rem; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
     }
-    .btn:hover { background: #34d399; }
-    .btn-danger {
-      background: transparent;
-      border: 1px solid #ef4444;
-      color: #ef4444;
-      margin-top: 12px;
+    .card-title .icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-glow); color: var(--accent);
     }
-    .btn-danger:hover { background: #ef4444; color: #000; }
 
-    /* Sections */
-    #lookup-section, #dashboard-section { transition: all 0.2s; }
-    #dashboard-section { display: none; }
-    #dashboard-section.show { display: block; }
-    #lookup-section.hide { display: none; }
-
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #1a1a1a;
-    }
-    .info-row:last-child { border-bottom: none; }
-    .info-label { color: #888; font-size: 0.85rem; }
-    .info-value { color: #e5e5e5; font-size: 0.85rem; font-family: monospace; }
-
+    /* Token display */
     .token-box {
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 0.85rem;
-      color: #fff;
-      background: #0a0a0a;
-      padding: 12px 16px;
-      border-radius: 8px;
-      border: 1px solid #252525;
-      word-break: break-all;
-      margin: 16px 0;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 16px;
     }
-    .token-box:hover { border-color: #10b981; }
+    .token-value {
+      flex: 1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      padding: 10px 14px;
+      overflow-x: auto;
+      white-space: nowrap;
+      user-select: all;
+    }
+    .token-btn {
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .token-btn:hover { color: var(--text); background: #252528; }
 
-    .error { color: #ef4444; font-size: 0.85rem; margin-top: 12px; display: none; }
-    .error.show { display: block; }
-    .success { color: #10b981; font-size: 0.85rem; margin-top: 12px; display: none; }
-    .success.show { display: block; }
-    .back { display: block; margin-top: 20px; color: #888; text-decoration: none; font-size: 0.85rem; text-align: center; }
-    .back:hover { color: #e5e5e5; }
+    /* Info rows */
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-item {
+      background: var(--bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .info-label {
+      font-size: 0.7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-dim); margin-bottom: 4px;
+    }
+    .info-value {
+      font-size: 0.9rem; font-weight: 500;
+    }
+    .info-value.green { color: var(--accent); }
+    .info-value.amber { color: var(--amber); }
+    .info-value.red { color: var(--red); }
+
+    /* Command block */
+    .cmd-block {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 16px;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .cmd-block .cm { color: var(--text-dim); }
+    .cmd-block .val { color: var(--accent); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 600;
+      border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-accent { background: var(--accent); color: #000; }
+    .btn-accent:hover { background: var(--accent-hover); }
+    .btn-outline {
+      background: none; border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-outline:hover { color: var(--text); border-color: var(--text-dim); }
+    .btn-danger {
+      background: none; border: 1px solid rgba(239,68,68,0.3);
+      color: var(--red);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+    /* Status dot */
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 6px;
+    }
+    .status-dot.active { background: var(--accent); }
+    .status-dot.expired { background: var(--red); }
+    .status-dot.warning { background: var(--amber); }
+
+    /* Loading state */
+    .loading {
+      text-align: center; padding: 60px 0;
+      color: var(--text-dim); font-size: 0.9rem;
+    }
+    .spinner {
+      width: 32px; height: 32px; margin: 0 auto 16px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Vault backup info */
+    .vault-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    }
+    @media (max-width: 600px) { .vault-stats { grid-template-columns: 1fr; } }
+
+    /* Clerk signin mount */
+    #clerk-signin-mount {
+      display: flex; justify-content: center;
+      padding: 80px 0;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <!-- Lookup Section -->
-    <div id="lookup-section">
-      <h1>Dashboard</h1>
-      <p class="subtitle">Enter your email and license token to view your license.</p>
-      <form id="lookup-form">
-        <label for="email">Email address</label>
-        <input type="email" id="email" placeholder="you@example.com" required>
-        <div class="field-gap"></div>
-        <label for="token">License Token</label>
-        <input type="text" id="token" placeholder="Your license token" required>
-        <div class="error" id="lookup-error"></div>
-        <button type="submit" class="btn">Look Up</button>
-      </form>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="28" height="28" rx="6" fill="#10b981" fill-opacity="0.15"/>
+          <path d="M8 10.5C8 9.12 9.12 8 10.5 8H14L10 14H14L10 20H8V10.5Z" fill="#10b981"/>
+          <path d="M14 8H17.5C18.88 8 20 9.12 20 10.5V20H18L14 14H18L14 8Z" fill="#6ee7b7"/>
+        </svg>
+        EnvSave
+      </a>
+      <div class="nav-right">
+        <span id="user-info"></span>
+        <button id="sign-out-btn" style="display:none">Sign Out</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Loading state -->
+    <div id="loading-state" class="loading">
+      <div class="spinner"></div>
+      Loading...
     </div>
 
-    <!-- Dashboard Section -->
-    <div id="dashboard-section">
-      <h1>Your License</h1>
-
-      <div class="info-row">
-        <span class="info-label">Email</span>
-        <span class="info-value" id="dash-email"></span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Created</span>
-        <span class="info-value" id="dash-created"></span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Expires</span>
-        <span class="info-value" id="dash-expires"></span>
-      </div>
-
-      <p style="color: #888; font-size: 0.8rem; margin-top: 16px;">Click token to copy:</p>
-      <div class="token-box" id="dash-token"></div>
-
-      <button class="btn btn-danger" id="regen-btn">Regenerate Token</button>
-      <div class="success" id="regen-success">Token regenerated! Update your CLI with the new token.</div>
-      <div class="error" id="regen-error"></div>
+    <!-- Sign-in state -->
+    <div id="signin-state" style="display:none">
+      <h1 class="page-title">Sign in to continue</h1>
+      <p class="page-desc">Sign in with your account to access your EnvSave dashboard.</p>
+      <div id="clerk-signin-mount"></div>
     </div>
 
-    <a class="back" href="/">← Back to EnvSave</a>
+    <!-- Dashboard state -->
+    <div id="dashboard-state" style="display:none">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-desc">Manage your license token and vault backups.</p>
+
+      <!-- License Token Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4v4c0 3 2.5 5.5 6 7 3.5-1.5 6-4 6-7V4L8 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            </div>
+            License Token
+          </div>
+          <span id="token-status"></span>
+        </div>
+
+        <div class="token-box">
+          <span class="token-value" id="token-display">Loading...</span>
+          <button class="token-btn" id="copy-token-btn">Copy</button>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Email</div>
+            <div class="info-value" id="info-email">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Status</div>
+            <div class="info-value" id="info-status">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Created</div>
+            <div class="info-value" id="info-created">—</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Expires</div>
+            <div class="info-value" id="info-expires">—</div>
+          </div>
+        </div>
+
+        <div class="cmd-block">
+          <span class="cm"># Activate on your machine</span><br>
+          envsave activate <span class="val" id="cmd-token">...</span>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+          <button class="btn btn-outline" id="copy-cmd-btn">Copy Command</button>
+          <button class="btn btn-danger" id="regenerate-btn">Regenerate Token</button>
+        </div>
+      </div>
+
+      <!-- Vault Backup Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4l6-3 6 3v2l-6 3-6-3V4z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M2 8l6 3 6-3" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M2 11l6 3 6-3" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            </div>
+            Vault Backup
+          </div>
+        </div>
+
+        <div id="vault-no-backup" style="display:none">
+          <p style="color:var(--text-dim);font-size:0.9rem;margin-bottom:16px">
+            No backup found. Run <code style="color:var(--accent)">envsave backup</code> from your terminal to upload your encrypted vault.
+          </p>
+        </div>
+
+        <div id="vault-has-backup" style="display:none">
+          <div class="vault-stats">
+            <div class="info-item">
+              <div class="info-label">Size</div>
+              <div class="info-value green" id="vault-size">—</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Last Updated</div>
+              <div class="info-value" id="vault-updated">—</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Checksum (SHA-256)</div>
+              <div class="info-value" id="vault-checksum" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;word-break:break-all">—</div>
+            </div>
+          </div>
+          <div class="cmd-block" style="margin-top:16px">
+            <span class="cm"># Restore vault on another machine</span><br>
+            envsave activate <span class="val" id="cmd-token-restore">...</span><br>
+            envsave restore
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Reference -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10v12H3z" stroke="currentColor" stroke-width="1.3" rx="1"/><path d="M6 5h4M6 8h4M6 11h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </div>
+            Quick Reference
+          </div>
+        </div>
+        <div class="cmd-block">
+          <span class="cm"># Core commands</span><br>
+          envsave init --env .env&nbsp;&nbsp;&nbsp;<span class="cm"># Import .env file</span><br>
+          envsave set KEY value&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Add a secret</span><br>
+          envsave reveal KEY&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Show opaque key</span><br>
+          envsave list&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># List all keys</span><br>
+          envsave backup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Upload vault</span><br>
+          envsave restore&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Download vault</span><br>
+          envsave sync&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Two-way sync</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    const lookupSection = document.getElementById('lookup-section');
-    const dashSection = document.getElementById('dashboard-section');
-    const lookupForm = document.getElementById('lookup-form');
-    const lookupError = document.getElementById('lookup-error');
-    let currentEmail = '';
-    let currentToken = '';
+    const CLERK_KEY = "__CLERK_PUBLISHABLE_KEY__";
+    let clerkInstance = null;
 
-    lookupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      lookupError.classList.remove('show');
-      currentEmail = document.getElementById('email').value;
-      currentToken = document.getElementById('token').value;
+    async function initApp() {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js";
+      script.crossOrigin = "anonymous";
+      document.head.appendChild(script);
+      await new Promise((r) => (script.onload = r));
+
+      const Clerk = window.Clerk;
+      clerkInstance = new Clerk(CLERK_KEY);
+      await clerkInstance.load();
+
+      document.getElementById("loading-state").style.display = "none";
+
+      if (!clerkInstance.user) {
+        showSignIn();
+      } else {
+        showDashboard();
+      }
+    }
+
+    function showSignIn() {
+      document.getElementById("signin-state").style.display = "block";
+      clerkInstance.mountSignIn(document.getElementById("clerk-signin-mount"), {
+        afterSignInUrl: "/dashboard",
+        afterSignUpUrl: "/dashboard",
+      });
+    }
+
+    async function showDashboard() {
+      const user = clerkInstance.user;
+      document.getElementById("dashboard-state").style.display = "block";
+      document.getElementById("user-info").textContent = user.primaryEmailAddress?.emailAddress || "";
+      document.getElementById("sign-out-btn").style.display = "inline-block";
 
       try {
-        const res = await fetch('/api/license/dashboard', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: currentEmail, token: currentToken }),
+        const session = clerkInstance.session;
+        const jwt = await session.getToken();
+
+        const res = await fetch("/api/token/provision", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${jwt}`,
+            "Content-Type": "application/json",
+          },
         });
-
         const data = await res.json();
-        if (data.error) {
-          lookupError.textContent = data.error;
-          lookupError.classList.add('show');
-          return;
+
+        if (data.token) {
+          displayTokenInfo(data);
+          loadVaultStatus(data.token);
         }
-
-        document.getElementById('dash-email').textContent = data.email;
-        document.getElementById('dash-created').textContent = data.createdAt;
-        document.getElementById('dash-expires').textContent = data.expiresAt || 'Never';
-        document.getElementById('dash-token').textContent = data.token;
-
-        lookupSection.classList.add('hide');
-        dashSection.classList.add('show');
-      } catch {
-        lookupError.textContent = 'Network error.';
-        lookupError.classList.add('show');
+      } catch (err) {
+        console.error("Failed to provision token:", err);
       }
-    });
+    }
+
+    function displayTokenInfo(data) {
+      document.getElementById("token-display").textContent = data.token;
+      document.getElementById("cmd-token").textContent = data.token;
+      document.getElementById("cmd-token-restore").textContent = data.token;
+      document.getElementById("info-email").textContent = data.email;
+
+      const expires = new Date(data.expiresAt);
+      const now = new Date();
+      const daysLeft = Math.ceil((expires - now) / 86400000);
+
+      document.getElementById("info-created").textContent = new Date(data.createdAt).toLocaleDateString("en-US", {
+        year: "numeric", month: "short", day: "numeric",
+      });
+      document.getElementById("info-expires").textContent = expires.toLocaleDateString("en-US", {
+        year: "numeric", month: "short", day: "numeric",
+      }) + ` (${daysLeft}d)`;
+
+      if (daysLeft <= 0) {
+        document.getElementById("token-status").innerHTML = '<span class="status-dot expired"></span>Expired';
+        document.getElementById("info-status").className = "info-value red";
+        document.getElementById("info-status").textContent = "Expired";
+      } else if (daysLeft <= 30) {
+        document.getElementById("token-status").innerHTML = '<span class="status-dot warning"></span>Expiring soon';
+        document.getElementById("info-status").className = "info-value amber";
+        document.getElementById("info-status").textContent = "Expiring soon";
+      } else {
+        document.getElementById("token-status").innerHTML = '<span class="status-dot active"></span>Active';
+        document.getElementById("info-status").className = "info-value green";
+        document.getElementById("info-status").textContent = "Active";
+      }
+    }
+
+    async function loadVaultStatus(token) {
+      try {
+        const res = await fetch("/api/vault/status", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        const data = await res.json();
+
+        if (data.hasBackup) {
+          document.getElementById("vault-has-backup").style.display = "block";
+          document.getElementById("vault-no-backup").style.display = "none";
+
+          const bytes = data.size;
+          const sizeStr = bytes < 1024 ? bytes + " B" : (bytes / 1024).toFixed(1) + " KB";
+          document.getElementById("vault-size").textContent = sizeStr;
+          document.getElementById("vault-updated").textContent = new Date(data.updatedAt).toLocaleString();
+          document.getElementById("vault-checksum").textContent = data.checksum;
+        } else {
+          document.getElementById("vault-no-backup").style.display = "block";
+          document.getElementById("vault-has-backup").style.display = "none";
+        }
+      } catch (err) {
+        console.error("Failed to load vault status:", err);
+      }
+    }
 
     // Copy token
-    document.getElementById('dash-token').addEventListener('click', (e) => {
-      navigator.clipboard.writeText(e.target.textContent);
-      e.target.style.borderColor = '#10b981';
-      setTimeout(() => e.target.style.borderColor = '', 1000);
+    document.getElementById("copy-token-btn").addEventListener("click", () => {
+      const token = document.getElementById("token-display").textContent;
+      navigator.clipboard.writeText(token).then(() => {
+        document.getElementById("copy-token-btn").textContent = "Copied!";
+        setTimeout(() => { document.getElementById("copy-token-btn").textContent = "Copy"; }, 2000);
+      });
     });
 
-    // Regenerate
-    document.getElementById('regen-btn').addEventListener('click', async () => {
-      const success = document.getElementById('regen-success');
-      const error = document.getElementById('regen-error');
-      success.classList.remove('show');
-      error.classList.remove('show');
+    // Copy command
+    document.getElementById("copy-cmd-btn").addEventListener("click", () => {
+      const token = document.getElementById("token-display").textContent;
+      navigator.clipboard.writeText(`envsave activate ${token}`).then(() => {
+        document.getElementById("copy-cmd-btn").textContent = "Copied!";
+        setTimeout(() => { document.getElementById("copy-cmd-btn").textContent = "Copy Command"; }, 2000);
+      });
+    });
 
-      try {
-        const res = await fetch('/api/license/regenerate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: currentEmail, token: currentToken }),
-        });
+    // Regenerate token
+    document.getElementById("regenerate-btn").addEventListener("click", async () => {
+      if (!confirm("This will invalidate your current token. Continue?")) return;
 
-        const data = await res.json();
-        if (data.token) {
-          currentToken = data.token;
-          document.getElementById('dash-token').textContent = data.token;
-          success.classList.add('show');
-        } else {
-          error.textContent = data.error || 'Failed to regenerate.';
-          error.classList.add('show');
-        }
-      } catch {
-        error.textContent = 'Network error.';
-        error.classList.add('show');
+      const session = clerkInstance.session;
+      const jwt = await session.getToken();
+
+      const res = await fetch("/api/token/regenerate", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${jwt}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json();
+
+      if (data.token) {
+        displayTokenInfo(data);
+        document.getElementById("regenerate-btn").textContent = "Regenerated!";
+        setTimeout(() => { document.getElementById("regenerate-btn").textContent = "Regenerate Token"; }, 2000);
       }
     });
+
+    // Sign out
+    document.getElementById("sign-out-btn").addEventListener("click", () => {
+      clerkInstance.signOut().then(() => { window.location.href = "/"; });
+    });
+
+    initApp();
   </script>
 </body>
 </html>
