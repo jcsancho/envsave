@@ -215,7 +215,14 @@ function checkRateLimit(): void {
   // Keep only timestamps within the window
   timestamps = timestamps.filter(t => now - t < DEFAULT_RATE_LIMIT_WINDOW_MS);
   if (timestamps.length >= config.maxGetsPerMinute) {
-    throw new Error(`Rate limit exceeded. Max ${config.maxGetsPerMinute} get calls per minute.`);
+    logAccess("RATE_LIMIT_BLOCKED", "blocked");
+    throw new Error(`Rate limit exceeded. Max ${config.maxGetsPerMinute} get calls per minute. Try again in ${Math.ceil((DEFAULT_RATE_LIMIT_WINDOW_MS - (now - timestamps[0])) / 1000)}s.`);
+  }
+  // Warn at 80% of limit
+  const threshold = Math.floor(config.maxGetsPerMinute * 0.8);
+  if (timestamps.length >= threshold) {
+    const remaining = config.maxGetsPerMinute - timestamps.length;
+    console.error(`⚠ Rate limit warning: ${remaining} get(s) remaining this minute.`);
   }
   timestamps.push(now);
   writeFileSync(RATE_FILE, JSON.stringify(timestamps), { mode: 0o600 });
