@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createInterface } from "node:readline";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -20,11 +20,36 @@ import {
   vaultExists,
   configureRateLimit,
   getRateLimitConfig,
+  getDeploySecrets,
 } from "./vault.ts";
-import { activateLicense, checkLicense, getLicenseToken } from "./license.ts";
+import { activateLicense, checkLicense, getLicenseToken, hasValidLicense } from "./license.ts";
 
 const args = process.argv.slice(2);
 const command = args[0];
+
+function checkEnvFiles(): void {
+  const cwd = process.cwd();
+  const envPatterns = [".env", ".env.local", ".env.development", ".env.production", ".env.staging", ".env.test"];
+  const found: string[] = [];
+  try {
+    const files = readdirSync(cwd);
+    for (const f of files) {
+      if (f === ".env" || f.startsWith(".env.")) {
+        found.push(f);
+      }
+    }
+  } catch {}
+  if (found.length > 0) {
+    const RED = "\x1b[31m";
+    const BOLD = "\x1b[1m";
+    const RESET = "\x1b[0m";
+    console.error(`\n${RED}${BOLD}⚠  Warning: Found .env files in current directory:${RESET}`);
+    for (const f of found) {
+      console.error(`${RED}   • ${f}${RESET}`);
+    }
+    console.error(`${RED}   Consider importing them into EnvSave: envsave import <file>${RESET}`);
+  }
+}
 
 function usage(): void {
   console.log(`
@@ -49,6 +74,7 @@ Usage:
   envsave backup                        Upload encrypted vault to server
   envsave restore                       Download vault backup from server
   envsave sync                          Sync vault with server (pull if cloud newer)
+  envsave vercel <key> [key2]...        Push secrets to Vercel as opaque env vars
   envsave help                          Show this help
 
 Security model:
@@ -126,6 +152,7 @@ function getFlag(name: string): string | undefined {
 async function main(): Promise<void> {
   if (!command || command === "help" || command === "--help" || command === "-h") {
     usage();
+    checkEnvFiles();
     return;
   }
 
@@ -147,7 +174,6 @@ async function main(): Promise<void> {
     }
 
     case "init": {
-      await requireLicense();
       if (vaultExists()) {
         console.error("Vault already exists. Delete ~/.envsave/vault.enc to reinitialize.");
         process.exit(1);
@@ -189,7 +215,6 @@ async function main(): Promise<void> {
     }
 
     case "set": {
-      await requireLicense();
       const key = args[1];
       const value = args[2];
       if (!key || value === undefined) {
@@ -205,7 +230,6 @@ async function main(): Promise<void> {
     }
 
     case "reveal": {
-      await requireLicense();
       const keys = args.slice(1);
       if (keys.length === 0) {
         console.error("Usage: envsave reveal <key> [key2] [key3]...");
@@ -229,7 +253,6 @@ async function main(): Promise<void> {
     }
 
     case "show": {
-      await requireLicense();
       const key = args[1];
       if (!key) {
         console.error("Usage: envsave show <key>");
@@ -247,7 +270,6 @@ async function main(): Promise<void> {
     }
 
     case "get": {
-      await requireLicense();
       const key = args[1];
       if (!key) {
         console.error("Usage: envsave get <opaque_key>");
@@ -275,7 +297,6 @@ async function main(): Promise<void> {
     }
 
     case "delete": {
-      await requireLicense();
       const key = args[1];
       if (!key) {
         console.error("Usage: envsave delete <key>");
@@ -293,7 +314,6 @@ async function main(): Promise<void> {
     }
 
     case "config": {
-      await requireLicense();
       const maxGets = getFlag("--max-gets");
       const sessionTtl = getFlag("--session-ttl");
       if (!maxGets && !sessionTtl) {
@@ -324,7 +344,6 @@ async function main(): Promise<void> {
     }
 
     case "passwd": {
-      await requireLicense();
       const oldPassword = await promptPassword("Current password: ");
       if (!oldPassword) {
         console.error("Password cannot be empty.");
@@ -354,7 +373,6 @@ async function main(): Promise<void> {
     }
 
     case "search": {
-      await requireLicense();
       const keyword = args[1];
       if (!keyword) {
         console.error("Usage: envsave search <keyword>");
@@ -381,7 +399,6 @@ async function main(): Promise<void> {
     }
 
     case "list": {
-      await requireLicense();
       const password = await requirePassword();
       const keys = listKeys(password);
       if (keys.length === 0) {
@@ -391,12 +408,14 @@ async function main(): Promise<void> {
           console.log(k);
         }
         console.log(`\n${keys.length} secret(s). Use 'envsave reveal <KEY>' to get the opaque key.`);
+        if (!hasValidLicense()) {
+          console.log(`\x1b[33mFree tier: ${keys.length}/10 secrets used. Activate a license for unlimited.\x1b[0m`);
+        }
       }
       break;
     }
 
     case "import": {
-      await requireLicense();
       const file = args[1];
       if (!file) {
         console.error("Usage: envsave import <file>");
@@ -414,7 +433,6 @@ async function main(): Promise<void> {
     }
 
     case "export": {
-      await requireLicense();
       const password = await requirePassword();
       const output = exportEnv(password);
       console.log(output);
@@ -666,10 +684,94 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "vercel": {
+
+      // Check if project is linked to Vercel
+      const vercelDir = join(process.cwd(), ".vercel");
+      const vercelProjectJson = join(vercelDir, "project.json");
+      if (!existsSync(vercelProjectJson)) {
+        console.error("This project is not linked to Vercel.");
+        console.error("Run 'vercel link' first to connect this directory to a Vercel project.");
+        process.exit(1);
+      }
+
+      let projectName = "unknown";
+      try {
+        const proj = JSON.parse(readFileSync(vercelProjectJson, "utf8"));
+        projectName = proj.projectId || "unknown";
+      } catch {}
+
+      const envArg = getFlag("--env");
+      const environments = envArg ? envArg.split(",") : ["production", "preview", "development"];
+
+      const keyArgs = args.slice(1).filter(a => !a.startsWith("--"));
+      // Remove --env's value from keys list
+      if (envArg) {
+        const envIdx = keyArgs.indexOf(envArg);
+        if (envIdx !== -1) keyArgs.splice(envIdx, 1);
+      }
+
+      if (keyArgs.length === 0) {
+        console.error("Usage: envsave vercel <key> [key2]... [--env production,preview]");
+        process.exit(1);
+      }
+
+      const password = await requirePassword();
+      const keysToPush = keyArgs;
+
+      const secrets = getDeploySecrets(keysToPush, password);
+      const notFound = keysToPush.filter(k => !secrets.find(s => s.name === k));
+
+      if (notFound.length > 0) {
+        console.error(`Secrets not found: ${notFound.join(", ")}`);
+        if (secrets.length === 0) process.exit(1);
+      }
+
+      console.log(`\nPushing ${secrets.length} secret(s) to Vercel (${environments.join(", ")})...\n`);
+
+      let success = 0;
+      let failed = 0;
+
+      for (const secret of secrets) {
+        for (const env of environments) {
+          // Check if env var already exists — try to remove first, ignore errors
+          const rmProc = Bun.spawnSync(["vercel", "env", "rm", secret.opaque, env, "-y"], {
+            stdout: "ignore",
+            stderr: "ignore",
+          });
+
+          // Add the env var — pipe value via stdin to avoid shell escaping issues
+          const proc = Bun.spawnSync(["vercel", "env", "add", secret.opaque, env], {
+            stdin: Buffer.from(secret.value),
+            stdout: "pipe",
+            stderr: "pipe",
+          });
+
+          if (proc.exitCode === 0) {
+            console.log(`  \x1b[32m✓\x1b[0m ${secret.name} → ${secret.opaque} [${env}]`);
+            success++;
+          } else {
+            const errMsg = proc.stderr.toString().trim();
+            console.error(`  \x1b[31m✗\x1b[0m ${secret.name} → ${secret.opaque} [${env}]: ${errMsg}`);
+            failed++;
+          }
+        }
+      }
+
+      console.log(`\nDone: ${success} pushed, ${failed} failed.`);
+      if (failed > 0) process.exit(1);
+      break;
+    }
+
     default:
       console.error(`Unknown command: ${command}`);
       usage();
       process.exit(1);
+  }
+
+  // Alert about .env files in current directory (skip for 'get' to keep output clean)
+  if (command !== "get") {
+    checkEnvFiles();
   }
 }
 

@@ -97,16 +97,22 @@ On Vercel there is no envsave vault. When `envsave.get("es_xxx")` can't find the
 
 This way the code `envsave.get("es_7a3f2b1e9c8d4f6b")` resolves via `process.env.es_7a3f2b1e9c8d4f6b` on Vercel, returning the real API key — without any vault needed.
 
-**To push secrets to Vercel**, output a copy-paste script. Use `printf '%s'` to avoid trailing newlines — a bare pipe from `envsave get` or `echo` adds a newline that corrupts credentials (causes `invalid_client` errors with OAuth APIs like Spotify).
+**To push secrets to Vercel**, use the built-in `envsave vercel` command. The project must be linked to Vercel first (`vercel link`).
 
 ```bash
-printf '%s' "$(envsave get es_7a3f2b1e9c8d4f6b)" | vercel env add es_7a3f2b1e9c8d4f6b production
-printf '%s' "$(envsave get es_9c1d4e8a2b6f3c7e)" | vercel env add es_9c1d4e8a2b6f3c7e production
+# Push specific secrets
+envsave vercel OPENAI_API_KEY STRIPE_KEY
+
+# Target specific environments (default: production,preview,development)
+envsave vercel OPENAI_API_KEY --env production,preview
 ```
 
-**IMPORTANT: Always use `printf '%s' "$(envsave get ...)"` — never pipe `envsave get` directly or use `echo`.** Trailing newlines in env var values silently break API credentials.
-
-The secret goes from vault → printf (no newline) → Vercel. It never touches a local file.
+The command automatically:
+- Checks the project is linked to Vercel (`.vercel/project.json`)
+- Resolves each clean key name to its opaque key
+- Sets the opaque key as the Vercel env var name, real secret as the value
+- Removes existing vars before adding (handles updates)
+- Pipes values via stdin — no shell escaping issues, no trailing newlines
 
 **CRITICAL: Never write real secret values to any local file.** No `.env.local`, no `.env.production`, no temp files.
 
@@ -128,4 +134,4 @@ The secret goes from vault → printf (no newline) → Vercel. It never touches 
 | Add a secret | `envsave set <NAME> <VALUE>` |
 | Get opaque key | `envsave reveal <NAME>` |
 | Unlock vault | `envsave list` |
-| Push to Vercel | `printf '%s' "$(envsave get es_xxx)" \| vercel env add es_xxx production` |
+| Push to Vercel | `envsave vercel KEY1 KEY2` |

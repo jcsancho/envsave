@@ -142,6 +142,20 @@ async function tryAutoRenew(token: string): Promise<boolean> {
   }
 }
 
+/** Synchronous license check — no network, no auto-renew. Returns true if a valid (non-expired) license exists. */
+export function hasValidLicense(): boolean {
+  if (!existsSync(LICENSE_FILE)) return false;
+  try {
+    const data = JSON.parse(readFileSync(LICENSE_FILE, "utf8")) as LicenseData;
+    const dates = parseToken(data.token);
+    if (dates) return dates.expiresAt > new Date();
+    if (data.expiresAt) return new Date(data.expiresAt) > new Date();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function checkLicense(): Promise<boolean> {
   if (!existsSync(LICENSE_FILE)) return false;
 

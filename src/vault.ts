@@ -4,6 +4,9 @@ import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { encrypt, decrypt, encryptWithKey, decryptWithKey, hmacSha256 } from "./crypto.ts";
 import { parseEnvFile } from "./env-parser.ts";
+import { hasValidLicense } from "./license.ts";
+
+const FREE_TIER_MAX_SECRETS = 10;
 
 const ENVSAVE_DIR = join(homedir(), ".envsave");
 const VAULT_FILE = join(ENVSAVE_DIR, "vault.enc");    // Main vault (password-encrypted)
@@ -270,6 +273,10 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
   let count = 0;
   if (options?.envFile) {
     const envSecrets = parseEnvFile(options.envFile);
+    // Free tier limit check
+    if (!hasValidLicense() && Object.keys(envSecrets).length > FREE_TIER_MAX_SECRETS) {
+      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. .env file has ${Object.keys(envSecrets).length} keys.\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://envsave.example.com`);
+    }
     for (const [key, value] of Object.entries(envSecrets)) {
       const opaque = computeOpaqueName(hmacSeed, key, sshKeyContent);
       vault.secrets[opaque] = value;
@@ -289,6 +296,13 @@ export function setSecret(key: string, value: string, password: string): string 
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
   const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+
+  // Free tier limit: only enforce when adding a NEW key
+  if (!(opaque in vault.secrets) && !hasValidLicense()) {
+    if (vault.registry.length >= FREE_TIER_MAX_SECRETS) {
+      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Run 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://envsave.example.com`);
+    }
+  }
 
   vault.secrets[opaque] = value;
   if (!vault.registry.includes(key)) {
@@ -364,6 +378,17 @@ export function importEnv(filePath: string, password: string): number {
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
 
+  // Free tier limit check
+  if (!hasValidLicense()) {
+    const newKeys = Object.keys(envSecrets).filter(key => {
+      const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+      return !(opaque in vault.secrets);
+    });
+    if (vault.registry.length + newKeys.length > FREE_TIER_MAX_SECRETS) {
+      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Import would add ${newKeys.length} new keys (${vault.registry.length} existing).\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://envsave.example.com`);
+    }
+  }
+
   let count = 0;
   for (const [key, value] of Object.entries(envSecrets)) {
     const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
@@ -405,6 +430,21 @@ export function searchKeys(pattern: string): string[] {
   }
   const lower = pattern.toLowerCase();
   return cache.registry.filter(k => k.toLowerCase().includes(lower));
+}
+
+/** Get opaque key + real value pairs for given clean names. REQUIRES PASSWORD. */
+export function getDeploySecrets(cleanNames: string[], password: string): { name: string; opaque: string; value: string }[] {
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  writeSessionCache(vault.secrets, vault.registry);
+  const results: { name: string; opaque: string; value: string }[] = [];
+  for (const name of cleanNames) {
+    const opaque = computeOpaqueName(vault.hmacSeed, name, sshKeyContent);
+    if (opaque in vault.secrets) {
+      results.push({ name, opaque, value: vault.secrets[opaque] });
+    }
+  }
+  return results;
 }
 
 // ─── Library API (session cache only — no password, no enumeration) ───
