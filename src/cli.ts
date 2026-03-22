@@ -64,6 +64,7 @@ Usage:
   envsave reveal <key> [key2] [key3]... Show opaque key name(s) (password required)
   envsave delete <key>                  Remove a secret (password required)
   envsave search <keyword>              Search keys matching keyword (no password)
+  envsave scan [dir]                    Scan project for env variable usage
   envsave passwd                        Change master password
   envsave config                        Show rate limit config
   envsave config --max-gets <n>         Set max gets per minute (password required)
@@ -394,6 +395,50 @@ async function main(): Promise<void> {
           console.log(k);
         }
         console.log(`\n${matches.length} key(s) matching "${keyword}".`);
+      }
+      break;
+    }
+
+    case "scan": {
+      const scanDir = args.slice(1).find(a => !a.startsWith("--")) || process.cwd();
+      const { scanProject } = await import("./scanner.ts");
+      const results = scanProject(scanDir);
+      if (results.length === 0) {
+        console.log("No env variable usage found.");
+      } else {
+        // Build reverse map: opaque key → clean name (requires password + vault)
+        let opaqueToName: Record<string, string> = {};
+        const hasOpaqueKeys = results.some(r => r.match.startsWith("es_"));
+        if (hasOpaqueKeys && vaultExists()) {
+          try {
+            const password = await requirePassword();
+            const keys = listKeys(password);
+            for (const k of keys) {
+              const opaque = revealKey(k, password);
+              if (opaque) opaqueToName[opaque] = k;
+            }
+          } catch (err: any) {
+            if (err.message?.includes("unable to authenticate data") || err.message?.includes("Unsupported state")) {
+              console.error("Incorrect password — skipping key resolution.");
+            }
+          }
+        }
+
+        const grouped: Record<string, { file: string; line: number; match: string }[]> = {};
+        for (const r of results) {
+          if (!grouped[r.type]) grouped[r.type] = [];
+          grouped[r.type].push(r);
+        }
+        for (const [type, entries] of Object.entries(grouped)) {
+          console.log(`\n\x1b[1m${type}\x1b[0m`);
+          for (const e of entries) {
+            const name = opaqueToName[e.match];
+            const display = name ? `${e.match} → ${name}` : e.match;
+            console.log(`  ${e.file}:${e.line}  ${display}`);
+          }
+        }
+        const uniqueVars = new Set(results.map(r => r.match));
+        console.log(`\n${results.length} reference(s), ${uniqueVars.size} unique variable(s) found.`);
       }
       break;
     }
