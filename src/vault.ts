@@ -92,7 +92,8 @@ interface SessionCache {
 const BASE_CHARS_V3 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@$&*=-!";
 
 /** Shell-safe character set — only chars safe unquoted in bash/zsh/fish/sh */
-const BASE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const BASE_CHARS_V4 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const BASE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 
 function hexToBaseN(hex: string, length: number, chars: string): string {
   let result = "";
@@ -130,6 +131,17 @@ function computeOpaqueName(hmacSeed: string, cleanName: string, sshKeyContent?: 
   const hash1 = hmacSha256(effectiveSeed, cleanName);
   const hash2 = hmacSha256(effectiveSeed, cleanName + ":2");
   return "es_" + hexToBaseN(hash1 + hash2, 48, BASE_CHARS);
+}
+
+/** Old v4 key computation for migration */
+function computeOpaqueNameV4(hmacSeed: string, cleanName: string, sshKeyContent?: string): string {
+  let effectiveSeed = hmacSeed;
+  if (sshKeyContent) {
+    effectiveSeed = hmacSha256(hmacSeed, sshKeyContent);
+  }
+  const hash1 = hmacSha256(effectiveSeed, cleanName);
+  const hash2 = hmacSha256(effectiveSeed, cleanName + ":2");
+  return "es_" + hexToBaseN(hash1 + hash2, 48, BASE_CHARS_V4);
 }
 
 /** Old v2 key computation for migration */
@@ -198,6 +210,23 @@ function readMainVault(password: string): MainVault {
     data.version = 4;
     writeMainVault(data, password);
     console.error("Vault migrated to v4 (shell-safe opaque keys).");
+  }
+  // Auto-migrate v4 → v5 (Vercel-compatible: no hyphens in opaque keys)
+  if (data.version === 4 && data.registry?.length > 0) {
+    const sshKeyContent = data.sshKeyPath && existsSync(data.sshKeyPath)
+      ? readFileSync(data.sshKeyPath, "utf8") : undefined;
+    const newSecrets: Record<string, string> = {};
+    for (const cleanName of data.registry) {
+      const oldKey = computeOpaqueNameV4(data.hmacSeed, cleanName, sshKeyContent);
+      const newKey = computeOpaqueName(data.hmacSeed, cleanName, sshKeyContent);
+      if (oldKey in data.secrets) {
+        newSecrets[newKey] = data.secrets[oldKey];
+      }
+    }
+    data.secrets = newSecrets;
+    data.version = 5;
+    writeMainVault(data, password);
+    console.error("Vault migrated to v5 (Vercel-compatible opaque keys).");
   }
   return data as MainVault;
 }
@@ -473,16 +502,16 @@ export function searchKeys(pattern: string): string[] {
   return cache.registry.filter(k => k.toLowerCase().includes(lower));
 }
 
-/** Get opaque key + real value pairs for given clean names. REQUIRES PASSWORD. */
-export function getDeploySecrets(cleanNames: string[], password: string): { name: string; opaque: string; value: string }[] {
+/** Get opaque key + real value pairs for given opaque keys. REQUIRES PASSWORD. */
+export function getDeploySecrets(opaqueKeys: string[], password: string): { name: string; opaque: string; value: string }[] {
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
   writeSessionCache(vault.secrets, vault.registry);
   const results: { name: string; opaque: string; value: string }[] = [];
-  for (const name of cleanNames) {
-    const opaque = computeOpaqueName(vault.hmacSeed, name, sshKeyContent);
+  for (const opaque of opaqueKeys) {
     if (opaque in vault.secrets) {
-      results.push({ name, opaque, value: vault.secrets[opaque] });
+      const cleanName = vault.registry?.find((r: string) => computeOpaqueName(vault.hmacSeed, r, sshKeyContent) === opaque) || opaque;
+      results.push({ name: cleanName, opaque, value: vault.secrets[opaque] });
     }
   }
   return results;

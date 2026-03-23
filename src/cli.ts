@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { createInterface } from "node:readline";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -676,7 +677,7 @@ async function main(): Promise<void> {
 
       // Both exist but different → compare dates, let user choose
       if (cloudStatus.hasBackup && hasLocal && cloudStatus.checksum !== localChecksum) {
-        const localMtime = Bun.file(vaultFile).lastModified;
+        const localMtime = statSync(vaultFile).mtimeMs;
         const cloudDate = cloudStatus.updatedAt ? new Date(cloudStatus.updatedAt).getTime() : 0;
 
         console.log("Local and cloud vaults differ:");
@@ -757,7 +758,14 @@ async function main(): Promise<void> {
       }
 
       if (keyArgs.length === 0) {
-        console.error("Usage: envsave vercel <key> [key2]... [--env production,preview]");
+        console.error("Usage: envsave vercel <es_key> [es_key2]... [--env production,preview]");
+        process.exit(1);
+      }
+
+      const invalidKeys = keyArgs.filter(k => !k.startsWith("es_"));
+      if (invalidKeys.length > 0) {
+        console.error(`Only opaque keys (es_...) are accepted. Use 'envsave reveal <NAME>' to get the opaque key.`);
+        console.error(`Invalid: ${invalidKeys.join(", ")}`);
         process.exit(1);
       }
 
@@ -765,7 +773,7 @@ async function main(): Promise<void> {
       const keysToPush = keyArgs;
 
       const secrets = getDeploySecrets(keysToPush, password);
-      const notFound = keysToPush.filter(k => !secrets.find(s => s.name === k));
+      const notFound = keysToPush.filter(k => !secrets.find(s => s.opaque === k));
 
       if (notFound.length > 0) {
         console.error(`Secrets not found: ${notFound.join(", ")}`);
@@ -780,19 +788,17 @@ async function main(): Promise<void> {
       for (const secret of secrets) {
         for (const env of environments) {
           // Check if env var already exists — try to remove first, ignore errors
-          const rmProc = Bun.spawnSync(["vercel", "env", "rm", secret.opaque, env, "-y"], {
-            stdout: "ignore",
-            stderr: "ignore",
+          spawnSync("vercel", ["env", "rm", secret.opaque, env, "-y"], {
+            stdio: "ignore",
           });
 
           // Add the env var — pipe value via stdin to avoid shell escaping issues
-          const proc = Bun.spawnSync(["vercel", "env", "add", secret.opaque, env], {
-            stdin: Buffer.from(secret.value),
-            stdout: "pipe",
-            stderr: "pipe",
+          const proc = spawnSync("vercel", ["env", "add", secret.opaque, env], {
+            input: Buffer.from(secret.value),
+            stdio: ["pipe", "pipe", "pipe"],
           });
 
-          if (proc.exitCode === 0) {
+          if (proc.status === 0) {
             console.log(`  \x1b[32m✓\x1b[0m ${secret.name} → ${secret.opaque} [${env}]`);
             success++;
           } else {
