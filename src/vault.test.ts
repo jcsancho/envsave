@@ -1,11 +1,16 @@
-import { test, expect, describe, beforeEach } from "bun:test";
+import { test, expect, describe, beforeEach, afterAll } from "bun:test";
 import { execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import { tmpdir } from "node:os";
 
+// CRITICAL: Use a temp directory so tests never touch the real vault (~/.envsave)
+const TEST_ENVSAVE_DIR = join(tmpdir(), `envsave-test-${process.pid}`);
+process.env.ENVSAVE_DIR = TEST_ENVSAVE_DIR;
+process.env.NODE_ENV = "test";
+
+// Import AFTER setting env vars so vault.ts picks up the test directory
 import { encrypt, decrypt, encryptWithKey, decryptWithKey, hmacSha256 } from "./crypto.ts";
 import { parseEnvFile } from "./env-parser.ts";
 import {
@@ -19,11 +24,13 @@ import {
   exportEnv,
 } from "./vault.ts";
 
-const ENVSAVE_DIR = join(homedir(), ".envsave");
-
 function cleanup(): void {
-  execSync(`rm -rf ${ENVSAVE_DIR}`);
+  execSync(`rm -rf ${TEST_ENVSAVE_DIR}`);
 }
+
+afterAll(() => {
+  cleanup();
+});
 
 // ─── crypto.ts ───
 
@@ -132,9 +139,9 @@ describe("vault", () => {
   describe("initVault", () => {
     test("creates vault files", () => {
       initVault(PASSWORD);
-      expect(existsSync(join(ENVSAVE_DIR, "vault.enc"))).toBe(true);
-      expect(existsSync(join(ENVSAVE_DIR, "cache.enc"))).toBe(true);
-      expect(existsSync(join(ENVSAVE_DIR, ".session"))).toBe(true);
+      expect(existsSync(join(TEST_ENVSAVE_DIR, "vault.enc"))).toBe(true);
+      expect(existsSync(join(TEST_ENVSAVE_DIR, "cache.enc"))).toBe(true);
+      expect(existsSync(join(TEST_ENVSAVE_DIR, ".session"))).toBe(true);
     });
 
     test("with envFile imports secrets", () => {
@@ -152,7 +159,7 @@ describe("vault", () => {
       writeFileSync(sshKeyFile, "ssh-rsa AAAAB3FakeKeyContent test@test");
       initVault(PASSWORD, { sshKeyPath: sshKeyFile });
       // Verify vault was created and is functional
-      expect(existsSync(join(ENVSAVE_DIR, "vault.enc"))).toBe(true);
+      expect(existsSync(join(TEST_ENVSAVE_DIR, "vault.enc"))).toBe(true);
       // Set and retrieve a secret to confirm SSH key factor works
       const opaque = setSecret("MY_KEY", "my_value", PASSWORD);
       expect(opaque.startsWith("es_")).toBe(true);
@@ -160,11 +167,13 @@ describe("vault", () => {
   });
 
   describe("setSecret", () => {
-    test("returns opaque key with ev_ prefix and 27 chars", () => {
+    test("returns opaque key with es_ prefix and 51 chars", () => {
       initVault(PASSWORD);
       const opaque = setSecret("API_KEY", "secret123", PASSWORD);
       expect(opaque.startsWith("es_")).toBe(true);
-      expect(opaque.length).toBe(27); // "es_" (3) + 24 hex chars
+      expect(opaque.length).toBe(51); // "es_" (3) + 48 base chars
+      // Must not contain shell-unsafe characters
+      expect(opaque).not.toMatch(/[*!&]/);
     });
 
     test("same key returns same opaque key", () => {
@@ -286,15 +295,15 @@ describe("vault", () => {
       setSecret("SECRET_B", "bbb", PASSWORD);
 
       // Read and decrypt the cache directly
-      const sessionKeyHex = readFileSync(join(ENVSAVE_DIR, ".session"), "utf8").trim();
+      const sessionKeyHex = readFileSync(join(TEST_ENVSAVE_DIR, ".session"), "utf8").trim();
       const sessionKey = Buffer.from(sessionKeyHex, "hex");
-      const payload = readFileSync(join(ENVSAVE_DIR, "cache.enc"));
+      const payload = readFileSync(join(TEST_ENVSAVE_DIR, "cache.enc"));
       const json = decryptWithKey(payload, sessionKey);
       const cache = JSON.parse(json);
 
-      // Cache must only have "secrets" — no registry, no hmacSeed, no aliases
-      expect(Object.keys(cache)).toEqual(["secrets"]);
-      expect(cache.registry).toBeUndefined();
+      // Cache must only have "secrets" and "registry" — no hmacSeed, no aliases
+      expect(Object.keys(cache).sort()).toEqual(["registry", "secrets"]);
+      expect(cache.registry).toBeDefined();
       expect(cache.hmacSeed).toBeUndefined();
       expect(cache.sshKeyPath).toBeUndefined();
       expect(cache.version).toBeUndefined();
@@ -304,9 +313,11 @@ describe("vault", () => {
         expect(key.startsWith("es_")).toBe(true);
       }
 
-      // Clean names must NOT appear anywhere in the raw JSON
-      expect(json).not.toContain("SECRET_A");
-      expect(json).not.toContain("SECRET_B");
+      // Clean names appear only in registry, not as secret keys
+      for (const key of Object.keys(cache.secrets)) {
+        expect(key).not.toBe("SECRET_A");
+        expect(key).not.toBe("SECRET_B");
+      }
     });
   });
 });

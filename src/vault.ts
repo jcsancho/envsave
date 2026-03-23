@@ -8,17 +8,26 @@ import { hasValidLicense } from "./license.ts";
 
 const FREE_TIER_MAX_SECRETS = 10;
 
-const ENVSAVE_DIR = join(homedir(), ".envsave");
-const VAULT_FILE = join(ENVSAVE_DIR, "vault.enc");    // Main vault (password-encrypted)
-const CACHE_FILE = join(ENVSAVE_DIR, "cache.enc");    // Session cache (random-key-encrypted)
-const SESSION_FILE = join(ENVSAVE_DIR, ".session");    // Random session key (NOT the password)
-const RATE_FILE = join(ENVSAVE_DIR, ".rate");           // Rate limiting state
-const ACCESS_LOG = join(ENVSAVE_DIR, "access.log");    // Access audit log
+function getEnvsaveDir(): string {
+  return process.env.ENVSAVE_DIR || join(homedir(), ".envsave");
+}
+function getVaultFile(): string { return join(getEnvsaveDir(), "vault.enc"); }
+function getCacheFile(): string { return join(getEnvsaveDir(), "cache.enc"); }
+function getSessionFile(): string { return join(getEnvsaveDir(), ".session"); }
+function getRateFile(): string { return join(getEnvsaveDir(), ".rate"); }
+function getAccessLog(): string { return join(getEnvsaveDir(), "access.log"); }
 
 const DEFAULT_SESSION_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60 * 1000;      // 1 minute
 const DEFAULT_RATE_LIMIT_MAX = 30;                    // max 30 gets per minute
-const CONFIG_FILE = join(ENVSAVE_DIR, "config.json");
+function getConfigFile(): string { return join(getEnvsaveDir(), "config.json"); }
+
+/** Check if tests are accidentally targeting the real vault */
+function guardRealVault(): void {
+  if (process.env.NODE_ENV === "test" && getEnvsaveDir() === join(homedir(), ".envsave")) {
+    throw new Error("Tests must not use the real vault. Set ENVSAVE_DIR to a temp directory.");
+  }
+}
 
 interface RateLimitConfig {
   maxGetsPerMinute: number;
@@ -26,11 +35,11 @@ interface RateLimitConfig {
 }
 
 function readConfig(): RateLimitConfig {
-  if (!existsSync(CONFIG_FILE)) {
+  if (!existsSync(getConfigFile())) {
     return { maxGetsPerMinute: DEFAULT_RATE_LIMIT_MAX, sessionTtlHours: DEFAULT_SESSION_TTL_MS / 3600000 };
   }
   try {
-    return JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
+    return JSON.parse(readFileSync(getConfigFile(), "utf8"));
   } catch {
     return { maxGetsPerMinute: DEFAULT_RATE_LIMIT_MAX, sessionTtlHours: DEFAULT_SESSION_TTL_MS / 3600000 };
   }
@@ -38,7 +47,7 @@ function readConfig(): RateLimitConfig {
 
 function writeConfig(config: RateLimitConfig): void {
   ensureDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
+  writeFileSync(getConfigFile(), JSON.stringify(config, null, 2), { mode: 0o600 });
 }
 
 /** Configure rate limit settings. REQUIRES PASSWORD. */
@@ -62,7 +71,7 @@ export function getRateLimitConfig(): RateLimitConfig {
  * Contains the HMAC seed and alias registry that an LLM can never reach.
  */
 interface MainVault {
-  version: 2 | 3;
+  version: 2 | 3 | 4;
   hmacSeed: string;       // hex — random 32 bytes, used to generate opaque names
   sshKeyPath?: string;    // optional SSH key factor path
   secrets: Record<string, string>;  // opaque_name → value
@@ -80,22 +89,35 @@ interface SessionCache {
   registry?: string[];              // clean key names (for search without password)
 }
 
-const BASE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@$&*=-!";
+const BASE_CHARS_V3 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@$&*=-!";
 
-/** Convert hex string to base69 string (A-Z, a-z, 0-9, @$&*=-!) of given length */
-function hexToBase69(hex: string, length: number): string {
+/** Shell-safe character set — only chars safe unquoted in bash/zsh/fish/sh */
+const BASE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+function hexToBaseN(hex: string, length: number, chars: string): string {
   let result = "";
   for (let i = 0; i < length; i++) {
     const hexPair = hex.slice((i * 2) % hex.length, ((i * 2) % hex.length) + 2) || hex.slice(0, 2);
     const byte = parseInt(hexPair, 16);
-    result += BASE_CHARS[byte % BASE_CHARS.length];
+    result += chars[byte % chars.length];
   }
   return result;
 }
 
+/** Old v3 key computation for migration */
+function computeOpaqueNameV3(hmacSeed: string, cleanName: string, sshKeyContent?: string): string {
+  let effectiveSeed = hmacSeed;
+  if (sshKeyContent) {
+    effectiveSeed = hmacSha256(hmacSeed, sshKeyContent);
+  }
+  const hash1 = hmacSha256(effectiveSeed, cleanName);
+  const hash2 = hmacSha256(effectiveSeed, cleanName + ":2");
+  return "es_" + hexToBaseN(hash1 + hash2, 48, BASE_CHARS_V3);
+}
+
 /**
- * Compute a fully opaque key name: HMAC-SHA256(seed, cleanName) → "es_" + 48 base62 chars.
- * Uses A-Z, a-z, 0-9 for higher entropy density.
+ * Compute a fully opaque key name: HMAC-SHA256(seed, cleanName) → "es_" + 48 shell-safe chars.
+ * Uses A-Z, a-z, 0-9, -, _ — safe unquoted in bash/zsh/fish/sh.
  * No trace of the original name. Impossible to reverse without the seed.
  * If SSH key is configured, the seed is further derived from the SSH key content.
  */
@@ -104,10 +126,10 @@ function computeOpaqueName(hmacSeed: string, cleanName: string, sshKeyContent?: 
   if (sshKeyContent) {
     effectiveSeed = hmacSha256(hmacSeed, sshKeyContent);
   }
-  // Double hash to get enough bytes for 48 base62 chars
+  // Double hash to get enough bytes for 48 chars
   const hash1 = hmacSha256(effectiveSeed, cleanName);
   const hash2 = hmacSha256(effectiveSeed, cleanName + ":2");
-  return "es_" + hexToBase69(hash1 + hash2, 48);
+  return "es_" + hexToBaseN(hash1 + hash2, 48, BASE_CHARS);
 }
 
 /** Old v2 key computation for migration */
@@ -121,21 +143,23 @@ function computeOpaqueNameV2(hmacSeed: string, cleanName: string, sshKeyContent?
 }
 
 function ensureDir(): void {
-  if (!existsSync(ENVSAVE_DIR)) {
-    mkdirSync(ENVSAVE_DIR, { recursive: true, mode: 0o700 });
+  guardRealVault();
+  if (!existsSync(getEnvsaveDir())) {
+    mkdirSync(getEnvsaveDir(), { recursive: true, mode: 0o700 });
   }
 }
 
 export function vaultExists(): boolean {
-  return existsSync(VAULT_FILE);
+  return existsSync(getVaultFile());
 }
 
 /** Read main vault (requires master password). Auto-migrates v2 → v3. */
 function readMainVault(password: string): MainVault {
-  if (!existsSync(VAULT_FILE)) {
+  guardRealVault();
+  if (!existsSync(getVaultFile())) {
     throw new Error("Vault not found. Run 'envsave init' first.");
   }
-  const payload = readFileSync(VAULT_FILE);
+  const payload = readFileSync(getVaultFile());
   const json = decrypt(payload, password);
   const data = JSON.parse(json);
   if (!data.version || data.version < 2) {
@@ -158,6 +182,23 @@ function readMainVault(password: string): MainVault {
     writeMainVault(data, password);
     console.error("Vault migrated to v3 (stronger opaque keys).");
   }
+  // Auto-migrate v3 → v4 (shell-safe opaque key characters)
+  if (data.version === 3 && data.registry?.length > 0) {
+    const sshKeyContent = data.sshKeyPath && existsSync(data.sshKeyPath)
+      ? readFileSync(data.sshKeyPath, "utf8") : undefined;
+    const newSecrets: Record<string, string> = {};
+    for (const cleanName of data.registry) {
+      const oldKey = computeOpaqueNameV3(data.hmacSeed, cleanName, sshKeyContent);
+      const newKey = computeOpaqueName(data.hmacSeed, cleanName, sshKeyContent);
+      if (oldKey in data.secrets) {
+        newSecrets[newKey] = data.secrets[oldKey];
+      }
+    }
+    data.secrets = newSecrets;
+    data.version = 4;
+    writeMainVault(data, password);
+    console.error("Vault migrated to v4 (shell-safe opaque keys).");
+  }
   return data as MainVault;
 }
 
@@ -165,7 +206,7 @@ function writeMainVault(data: MainVault, password: string): void {
   ensureDir();
   const json = JSON.stringify(data);
   const encrypted = encrypt(json, password);
-  writeFileSync(VAULT_FILE, encrypted, { mode: 0o600 });
+  writeFileSync(getVaultFile(), encrypted, { mode: 0o600 });
 }
 
 /**
@@ -179,23 +220,23 @@ function writeSessionCache(secrets: Record<string, string>, registry?: string[])
   const cache: SessionCache = { secrets, registry };
   const json = JSON.stringify(cache);
   const encrypted = encryptWithKey(json, sessionKey);
-  writeFileSync(CACHE_FILE, encrypted, { mode: 0o600 });
-  writeFileSync(SESSION_FILE, sessionKey.toString("hex"), { mode: 0o600 });
+  writeFileSync(getCacheFile(), encrypted, { mode: 0o600 });
+  writeFileSync(getSessionFile(), sessionKey.toString("hex"), { mode: 0o600 });
 }
 
 function readSessionCache(): SessionCache | null {
-  if (!existsSync(SESSION_FILE) || !existsSync(CACHE_FILE)) return null;
+  if (!existsSync(getSessionFile()) || !existsSync(getCacheFile())) return null;
   try {
     // Check session expiry
-    const sessionStat = statSync(SESSION_FILE);
+    const sessionStat = statSync(getSessionFile());
     const age = Date.now() - sessionStat.mtimeMs;
     const config = readConfig();
     if (age > config.sessionTtlHours * 3600000) {
       return null; // expired
     }
-    const sessionKeyHex = readFileSync(SESSION_FILE, "utf8").trim();
+    const sessionKeyHex = readFileSync(getSessionFile(), "utf8").trim();
     const sessionKey = Buffer.from(sessionKeyHex, "hex");
-    const payload = readFileSync(CACHE_FILE);
+    const payload = readFileSync(getCacheFile());
     const json = decryptWithKey(payload, sessionKey);
     return JSON.parse(json) as SessionCache;
   } catch {
@@ -208,9 +249,9 @@ function checkRateLimit(): void {
   const config = readConfig();
   const now = Date.now();
   let timestamps: number[] = [];
-  if (existsSync(RATE_FILE)) {
+  if (existsSync(getRateFile())) {
     try {
-      timestamps = JSON.parse(readFileSync(RATE_FILE, "utf8"));
+      timestamps = JSON.parse(readFileSync(getRateFile(), "utf8"));
     } catch {
       timestamps = [];
     }
@@ -228,14 +269,14 @@ function checkRateLimit(): void {
     console.error(`⚠ Rate limit warning: ${remaining} get(s) remaining this minute.`);
   }
   timestamps.push(now);
-  writeFileSync(RATE_FILE, JSON.stringify(timestamps), { mode: 0o600 });
+  writeFileSync(getRateFile(), JSON.stringify(timestamps), { mode: 0o600 });
 }
 
 /** Log access for audit */
 function logAccess(opaqueKey: string, source: string): void {
   ensureDir();
   const entry = `${new Date().toISOString()} ${source} ${opaqueKey.slice(0, 10)}...\n`;
-  appendFileSync(ACCESS_LOG, entry, { mode: 0o600 });
+  appendFileSync(getAccessLog(), entry, { mode: 0o600 });
 }
 
 /** Read SSH key content if configured */
@@ -263,7 +304,7 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
   const sshKeyContent = options?.sshKeyPath ? readFileSync(options.sshKeyPath, "utf8") : undefined;
 
   const vault: MainVault = {
-    version: 3,
+    version: 4,
     hmacSeed,
     sshKeyPath: options?.sshKeyPath,
     secrets: {},
@@ -287,7 +328,7 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
 
   writeMainVault(vault, password);
   writeSessionCache(vault.secrets, vault.registry);
-  chmodSync(ENVSAVE_DIR, 0o700);
+  chmodSync(getEnvsaveDir(), 0o700);
   return count;
 }
 
