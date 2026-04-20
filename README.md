@@ -22,7 +22,7 @@ const openai = new OpenAI({ apiKey: "sk-proj-abc123..." });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ✅ EnvSave — the agent only ever sees "es_7a3f...", useless outside your vault
-import { get } from "envsave";
+import { get } from "@envsave/cli";
 const openai = new OpenAI({ apiKey: get("es_7a3f2b1e9c8d4f6b2a1c3d5f") });
 ```
 
@@ -35,11 +35,11 @@ Up to **5 secrets** with no license. Beyond that you'll need to activate a licen
 ## Installation
 
 ```bash
-# Global CLI
-npm install -g envsave
+# Global CLI (binary will be available as `envsave`)
+npm install -g @envsave/cli
 
 # Or use it as a library
-npm install envsave
+npm install @envsave/cli
 ```
 
 Python users:
@@ -111,7 +111,7 @@ envsave get es_7a3f2b1e9c8d4f6b
 ### Node.js / Bun
 
 ```ts
-import { get, has } from "envsave";
+import { get, has } from "@envsave/cli";
 
 const apiKey = get("es_7a3f2b1e9c8d4f6b");
 
@@ -179,7 +179,7 @@ envsave sync
 
 ```bash
 # 1. Install envsave
-bun install envsave
+bun install @envsave/cli
 
 # 2. Activate with same license token
 envsave activate <token>
