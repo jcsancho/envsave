@@ -6,7 +6,7 @@ import { encrypt, decrypt, encryptWithKey, decryptWithKey, hmacSha256 } from "./
 import { parseEnvFile } from "./env-parser.ts";
 import { hasValidLicense } from "./license.ts";
 
-const FREE_TIER_MAX_SECRETS = 10;
+const FREE_TIER_MAX_SECRETS = 5;
 
 function getEnvsaveDir(): string {
   return process.env.ENVSAVE_DIR || join(homedir(), ".envsave");

@@ -455,7 +455,7 @@ async function main(): Promise<void> {
         }
         console.log(`\n${keys.length} secret(s). Use 'envsave reveal <KEY>' to get the opaque key.`);
         if (!hasValidLicense()) {
-          console.log(`\x1b[33mFree tier: ${keys.length}/10 secrets used. Activate a license for unlimited.\x1b[0m`);
+          console.log(`\x1b[33mFree tier: ${keys.length}/5 secrets used. Activate a license for unlimited.\x1b[0m`);
         }
       }
       break;
