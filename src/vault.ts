@@ -345,7 +345,7 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
     const envSecrets = parseEnvFile(options.envFile);
     // Free tier limit check
     if (!hasValidLicense() && Object.keys(envSecrets).length > FREE_TIER_MAX_SECRETS) {
-      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. .env file has ${Object.keys(envSecrets).length} keys.\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://envsave.example.com`);
+      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. .env file has ${Object.keys(envSecrets).length} keys.\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
     }
     for (const [key, value] of Object.entries(envSecrets)) {
       const opaque = computeOpaqueName(hmacSeed, key, sshKeyContent);
@@ -370,7 +370,7 @@ export function setSecret(key: string, value: string, password: string): string 
   // Free tier limit: only enforce when adding a NEW key
   if (!(opaque in vault.secrets) && !hasValidLicense()) {
     if (vault.registry.length >= FREE_TIER_MAX_SECRETS) {
-      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Run 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://envsave.example.com`);
+      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Run 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
     }
   }
 
@@ -455,7 +455,7 @@ export function importEnv(filePath: string, password: string): number {
       return !(opaque in vault.secrets);
     });
     if (vault.registry.length + newKeys.length > FREE_TIER_MAX_SECRETS) {
-      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Import would add ${newKeys.length} new keys (${vault.registry.length} existing).\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://envsave.example.com`);
+      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Import would add ${newKeys.length} new keys (${vault.registry.length} existing).\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
     }
   }
 

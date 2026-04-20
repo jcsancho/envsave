@@ -4,13 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/opt/envsave
-ExecStart=/usr/local/bin/bun run webapp/server.ts
+User=jcsancho
+WorkingDirectory=/home/jcsancho/envsave
+ExecStart=/home/jcsancho/.bun/bin/bun run webapp/server.ts
+EnvironmentFile=/home/jcsancho/envsave/.env
+Environment=NODE_ENV=production
+Environment=ENVSAVE_PORT=3900
 Restart=always
 RestartSec=5
-Environment=ENVSAVE_PORT=3900
-Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target

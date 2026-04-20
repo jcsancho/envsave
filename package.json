@@ -1,6 +1,6 @@
 {
   "name": "envsave",
-  "version": "1.0.32",
+  "version": "1.0.35",
   "description": "Local secret vault for LLM-safe environments — encrypted secrets that agents can't bulk-discover",
   "type": "module",
   "main": "dist/index.js",
@@ -39,7 +39,7 @@
     "type": "git",
     "url": "git+https://github.com/jcsancho/envsave.git"
   },
-  "homepage": "https://envsave.example.com",
+  "homepage": "https://api.envsave.com",
   "author": "Jose C Sancho",
   "dependencies": {
     "@clerk/backend": "^3.2.1",

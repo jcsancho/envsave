@@ -141,7 +141,7 @@ async function requirePassword(): Promise<string> {
 async function requireLicense(): Promise<void> {
   if (!(await checkLicense())) {
     console.error("No valid license found. Run 'envsave activate <token>' first.");
-    console.error("Get your license at https://envsave.example.com");
+    console.error("Get your license at https://api.envsave.com");
     process.exit(1);
   }
 }
@@ -502,7 +502,7 @@ async function main(): Promise<void> {
 
       const vaultData = readFileSync(vaultFile);
       const checksum = createHash("sha256").update(vaultData).digest("hex");
-      const apiBase = (process.env.ENVSAVE_LICENSE_API || "https://envsave.example.com/api/license/validate").replace("/api/license/validate", "");
+      const apiBase = (process.env.ENVSAVE_LICENSE_API || "https://api.envsave.com/api/license/validate").replace("/api/license/validate", "");
 
       console.log(`Uploading encrypted vault (${vaultData.byteLength} bytes)...`);
 
@@ -543,7 +543,7 @@ async function main(): Promise<void> {
 
       const envsaveDir = join(homedir(), ".envsave");
       const vaultFile = join(envsaveDir, "vault.enc");
-      const apiBase = (process.env.ENVSAVE_LICENSE_API || "https://envsave.example.com/api/license/validate").replace("/api/license/validate", "");
+      const apiBase = (process.env.ENVSAVE_LICENSE_API || "https://api.envsave.com/api/license/validate").replace("/api/license/validate", "");
 
       // Check if there's an existing vault and warn
       if (existsSync(vaultFile)) {
@@ -603,7 +603,7 @@ async function main(): Promise<void> {
 
       const envsaveDir = join(homedir(), ".envsave");
       const vaultFile = join(envsaveDir, "vault.enc");
-      const apiBase = (process.env.ENVSAVE_LICENSE_API || "https://envsave.example.com/api/license/validate").replace("/api/license/validate", "");
+      const apiBase = (process.env.ENVSAVE_LICENSE_API || "https://api.envsave.com/api/license/validate").replace("/api/license/validate", "");
 
       // Get cloud status
       const statusResp = await fetch(`${apiBase}/api/vault/status`, {

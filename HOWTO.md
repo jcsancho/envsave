@@ -19,7 +19,7 @@ envsave
 
 ### Online (production)
 
-Requires the license server running at `https://envsave.example.com`.
+Requires the license server running at `https://api.envsave.com`.
 
 ```bash
 # 1. Register on the webapp to get a token

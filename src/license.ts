@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 const ENVSAVE_DIR = join(homedir(), ".envsave");
 const LICENSE_FILE = join(ENVSAVE_DIR, "license.json");
 
-const LICENSE_API_URL = process.env.ENVSAVE_LICENSE_API || "https://envsave.example.com/api/license/validate";
+const LICENSE_API_URL = process.env.ENVSAVE_LICENSE_API || "https://api.envsave.com/api/license/validate";
 
 interface LicenseData {
   token: string;
@@ -112,7 +112,7 @@ export function getLicenseToken(): string | null {
   }
 }
 
-const RENEW_API_URL = (process.env.ENVSAVE_LICENSE_API || "https://envsave.example.com/api/license/validate").replace("/validate", "/renew");
+const RENEW_API_URL = (process.env.ENVSAVE_LICENSE_API || "https://api.envsave.com/api/license/validate").replace("/validate", "/renew");
 
 async function tryAutoRenew(token: string): Promise<boolean> {
   try {
