@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync, appendFileSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
@@ -17,7 +17,6 @@ function getSessionFile(): string { return join(getEnvsaveDir(), ".session"); }
 function getRateFile(): string { return join(getEnvsaveDir(), ".rate"); }
 function getAccessLog(): string { return join(getEnvsaveDir(), "access.log"); }
 
-const DEFAULT_SESSION_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60 * 1000;      // 1 minute
 const DEFAULT_RATE_LIMIT_MAX = 30;                    // max 30 gets per minute
 function getConfigFile(): string { return join(getEnvsaveDir(), "config.json"); }
@@ -31,17 +30,16 @@ function guardRealVault(): void {
 
 interface RateLimitConfig {
   maxGetsPerMinute: number;
-  sessionTtlHours: number;
 }
 
 function readConfig(): RateLimitConfig {
   if (!existsSync(getConfigFile())) {
-    return { maxGetsPerMinute: DEFAULT_RATE_LIMIT_MAX, sessionTtlHours: DEFAULT_SESSION_TTL_MS / 3600000 };
+    return { maxGetsPerMinute: DEFAULT_RATE_LIMIT_MAX };
   }
   try {
     return JSON.parse(readFileSync(getConfigFile(), "utf8"));
   } catch {
-    return { maxGetsPerMinute: DEFAULT_RATE_LIMIT_MAX, sessionTtlHours: DEFAULT_SESSION_TTL_MS / 3600000 };
+    return { maxGetsPerMinute: DEFAULT_RATE_LIMIT_MAX };
   }
 }
 
@@ -51,12 +49,11 @@ function writeConfig(config: RateLimitConfig): void {
 }
 
 /** Configure rate limit settings. REQUIRES PASSWORD. */
-export function configureRateLimit(password: string, options: { maxGetsPerMinute?: number; sessionTtlHours?: number }): RateLimitConfig {
+export function configureRateLimit(password: string, options: { maxGetsPerMinute?: number }): RateLimitConfig {
   // Verify password by reading vault
   readMainVault(password);
   const config = readConfig();
   if (options.maxGetsPerMinute !== undefined) config.maxGetsPerMinute = options.maxGetsPerMinute;
-  if (options.sessionTtlHours !== undefined) config.sessionTtlHours = options.sessionTtlHours;
   writeConfig(config);
   return config;
 }
@@ -256,13 +253,6 @@ function writeSessionCache(secrets: Record<string, string>, registry?: string[])
 function readSessionCache(): SessionCache | null {
   if (!existsSync(getSessionFile()) || !existsSync(getCacheFile())) return null;
   try {
-    // Check session expiry
-    const sessionStat = statSync(getSessionFile());
-    const age = Date.now() - sessionStat.mtimeMs;
-    const config = readConfig();
-    if (age > config.sessionTtlHours * 3600000) {
-      return null; // expired
-    }
     const sessionKeyHex = readFileSync(getSessionFile(), "utf8").trim();
     const sessionKey = Buffer.from(sessionKeyHex, "hex");
     const payload = readFileSync(getCacheFile());

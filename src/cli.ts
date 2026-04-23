@@ -69,7 +69,6 @@ Usage:
   envsave passwd                        Change master password
   envsave config                        Show rate limit config
   envsave config --max-gets <n>         Set max gets per minute (password required)
-  envsave config --session-ttl <hours>  Set session TTL in hours (password required)
   envsave list                          List clean key names (password required)
   envsave import <file>                 Import from .env file (password required)
   envsave export                        Export as .env format (password required)
@@ -317,31 +316,24 @@ async function main(): Promise<void> {
 
     case "config": {
       const maxGets = getFlag("--max-gets");
-      const sessionTtl = getFlag("--session-ttl");
-      if (!maxGets && !sessionTtl) {
+      if (!maxGets) {
         // Just show current config
         const config = getRateLimitConfig();
         console.log(`Rate limit config:`);
         console.log(`  Max gets per minute: ${config.maxGetsPerMinute}`);
-        console.log(`  Session TTL: ${config.sessionTtlHours} hours`);
         break;
       }
       const password = await requirePassword();
-      const options: { maxGetsPerMinute?: number; sessionTtlHours?: number } = {};
-      if (maxGets) options.maxGetsPerMinute = parseInt(maxGets, 10);
-      if (sessionTtl) options.sessionTtlHours = parseFloat(sessionTtl);
+      const options: { maxGetsPerMinute?: number } = {
+        maxGetsPerMinute: parseInt(maxGets, 10),
+      };
       if (options.maxGetsPerMinute !== undefined && (isNaN(options.maxGetsPerMinute) || options.maxGetsPerMinute < 1)) {
         console.error("--max-gets must be a positive number.");
-        process.exit(1);
-      }
-      if (options.sessionTtlHours !== undefined && (isNaN(options.sessionTtlHours) || options.sessionTtlHours <= 0)) {
-        console.error("--session-ttl must be a positive number.");
         process.exit(1);
       }
       const config = configureRateLimit(password, options);
       console.log(`Config updated:`);
       console.log(`  Max gets per minute: ${config.maxGetsPerMinute}`);
-      console.log(`  Session TTL: ${config.sessionTtlHours} hours`);
       break;
     }
 
