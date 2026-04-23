@@ -68,7 +68,7 @@ export function getRateLimitConfig(): RateLimitConfig {
  * Contains the HMAC seed and alias registry that an LLM can never reach.
  */
 interface MainVault {
-  version: 2 | 3 | 4;
+  version: 2 | 3 | 4 | 5;
   hmacSeed: string;       // hex — random 32 bytes, used to generate opaque names
   sshKeyPath?: string;    // optional SSH key factor path
   secrets: Record<string, string>;  // opaque_name → value
@@ -323,7 +323,7 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
   const sshKeyContent = options?.sshKeyPath ? readFileSync(options.sshKeyPath, "utf8") : undefined;
 
   const vault: MainVault = {
-    version: 4,
+    version: 5,
     hmacSeed,
     sshKeyPath: options?.sshKeyPath,
     secrets: {},
@@ -351,14 +351,15 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
   return count;
 }
 
-/** Set a secret; returns the opaque key name for use in code */
-export function setSecret(key: string, value: string, password: string): string {
+/** Set a secret; returns the opaque key name and whether it replaced an existing value. */
+export function setSecret(key: string, value: string, password: string): { opaque: string; updated: boolean } {
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
   const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+  const updated = opaque in vault.secrets;
 
   // Free tier limit: only enforce when adding a NEW key
-  if (!(opaque in vault.secrets) && !hasValidLicense()) {
+  if (!updated && !hasValidLicense()) {
     if (vault.registry.length >= FREE_TIER_MAX_SECRETS) {
       throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Run 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
     }
@@ -371,7 +372,7 @@ export function setSecret(key: string, value: string, password: string): string 
 
   writeMainVault(vault, password);
   writeSessionCache(vault.secrets, vault.registry);
-  return opaque;
+  return { opaque, updated };
 }
 
 /** Show the real value of a secret by clean name. REQUIRES PASSWORD. */

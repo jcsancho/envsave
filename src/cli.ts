@@ -223,8 +223,8 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const password = await requirePassword();
-      const opaque = setSecret(key, value, password);
-      console.log(`\n  ${key} → ${opaque}\n`);
+      const { opaque, updated } = setSecret(key, value, password);
+      console.log(`\n  ${updated ? "Updated" : "Added"}: ${key} → ${opaque}\n`);
       console.log(`  Use this in your code to access ${key}:`);
       console.log(`    envsave.get("${opaque}")\n`);
       break;

@@ -161,7 +161,7 @@ describe("vault", () => {
       // Verify vault was created and is functional
       expect(existsSync(join(TEST_ENVSAVE_DIR, "vault.enc"))).toBe(true);
       // Set and retrieve a secret to confirm SSH key factor works
-      const opaque = setSecret("MY_KEY", "my_value", PASSWORD);
+      const { opaque } = setSecret("MY_KEY", "my_value", PASSWORD);
       expect(opaque.startsWith("es_")).toBe(true);
     });
   });
@@ -169,25 +169,29 @@ describe("vault", () => {
   describe("setSecret", () => {
     test("returns opaque key with es_ prefix and 51 chars", () => {
       initVault(PASSWORD);
-      const opaque = setSecret("API_KEY", "secret123", PASSWORD);
+      const { opaque, updated } = setSecret("API_KEY", "secret123", PASSWORD);
       expect(opaque.startsWith("es_")).toBe(true);
       expect(opaque.length).toBe(51); // "es_" (3) + 48 base chars
       // Must not contain shell-unsafe characters
       expect(opaque).not.toMatch(/[*!&]/);
+      expect(updated).toBe(false);
     });
 
-    test("same key returns same opaque key", () => {
+    test("same key returns same opaque key and flags update", () => {
       initVault(PASSWORD);
-      const opaque1 = setSecret("API_KEY", "value1", PASSWORD);
-      const opaque2 = setSecret("API_KEY", "value2", PASSWORD);
-      expect(opaque1).toBe(opaque2);
+      const first = setSecret("API_KEY", "value1", PASSWORD);
+      const second = setSecret("API_KEY", "value2", PASSWORD);
+      expect(first.opaque).toBe(second.opaque);
+      expect(first.updated).toBe(false);
+      expect(second.updated).toBe(true);
+      expect(getSecretFromCache(second.opaque)).toBe("value2");
     });
   });
 
   describe("revealKey", () => {
     test("returns correct opaque key for existing secret", () => {
       initVault(PASSWORD);
-      const opaqueFromSet = setSecret("MY_SECRET", "val", PASSWORD);
+      const { opaque: opaqueFromSet } = setSecret("MY_SECRET", "val", PASSWORD);
       const opaqueFromReveal = revealKey("MY_SECRET", PASSWORD);
       expect(opaqueFromReveal).toBe(opaqueFromSet);
     });
@@ -202,7 +206,7 @@ describe("vault", () => {
   describe("getSecretFromCache", () => {
     test("works after setSecret", () => {
       initVault(PASSWORD);
-      const opaque = setSecret("CACHED_KEY", "cached_value", PASSWORD);
+      const { opaque } = setSecret("CACHED_KEY", "cached_value", PASSWORD);
       const value = getSecretFromCache(opaque);
       expect(value).toBe("cached_value");
     });
@@ -274,14 +278,14 @@ describe("vault", () => {
     test("changes opaque names when SSH key is used", () => {
       // Init without SSH key
       initVault(PASSWORD);
-      const opaqueNoSsh = setSecret("SHARED_KEY", "val", PASSWORD);
+      const { opaque: opaqueNoSsh } = setSecret("SHARED_KEY", "val", PASSWORD);
       cleanup();
 
       // Init with SSH key
       const sshKeyFile = join(tmpdir(), `test-ssh-factor-${Date.now()}`);
       writeFileSync(sshKeyFile, "ssh-ed25519 AAAAC3FakeEd25519Key test@host");
       initVault(PASSWORD, { sshKeyPath: sshKeyFile });
-      const opaqueWithSsh = setSecret("SHARED_KEY", "val", PASSWORD);
+      const { opaque: opaqueWithSsh } = setSecret("SHARED_KEY", "val", PASSWORD);
 
       // The opaque names must differ because the SSH key changes the HMAC seed
       expect(opaqueNoSsh).not.toBe(opaqueWithSsh);
