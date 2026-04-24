@@ -77,7 +77,7 @@ Usage:
   envsave backup                        Upload encrypted vault to server
   envsave restore                       Download vault backup from server
   envsave sync                          Sync vault with server (pull if cloud newer)
-  envsave vercel <KEY|es_key>...        Push secrets to Vercel (accepts names or opaque keys)
+  envsave vercel <KEY|es_key>...        Push secrets to Vercel under both clean name + opaque id
   envsave help                          Show this help
 
 Security model:
@@ -778,26 +778,38 @@ async function main(): Promise<void> {
       let success = 0;
       let failed = 0;
 
+      const pushVar = (varName: string, value: string, env: string): boolean => {
+        spawnSync("vercel", ["env", "rm", varName, env, "-y"], {
+          stdio: "ignore",
+        });
+        const proc = spawnSync("vercel", ["env", "add", varName, env], {
+          input: Buffer.from(value),
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        if (proc.status === 0) return true;
+        const errMsg = proc.stderr.toString().trim();
+        console.error(`  \x1b[31m✗\x1b[0m ${varName} [${env}]: ${errMsg}`);
+        return false;
+      };
+
       for (const secret of secrets) {
+        // Always push under both the opaque id AND the clean name, so the same
+        // secret works for build-time code (envsave.get("es_...")) and for
+        // runtime serverless functions reading process.env.CLEAN_NAME.
+        // If the key was added via opaque id only (no registry entry), name
+        // falls back to opaque — skip the duplicate push in that case.
+        const varNames = secret.name !== secret.opaque
+          ? [secret.opaque, secret.name]
+          : [secret.opaque];
+
         for (const env of environments) {
-          // Check if env var already exists — try to remove first, ignore errors
-          spawnSync("vercel", ["env", "rm", secret.opaque, env, "-y"], {
-            stdio: "ignore",
-          });
-
-          // Add the env var — pipe value via stdin to avoid shell escaping issues
-          const proc = spawnSync("vercel", ["env", "add", secret.opaque, env], {
-            input: Buffer.from(secret.value),
-            stdio: ["pipe", "pipe", "pipe"],
-          });
-
-          if (proc.status === 0) {
-            console.log(`  \x1b[32m✓\x1b[0m ${secret.name} → ${secret.opaque} [${env}]`);
-            success++;
-          } else {
-            const errMsg = proc.stderr.toString().trim();
-            console.error(`  \x1b[31m✗\x1b[0m ${secret.name} → ${secret.opaque} [${env}]: ${errMsg}`);
-            failed++;
+          for (const varName of varNames) {
+            if (pushVar(varName, secret.value, env)) {
+              console.log(`  \x1b[32m✓\x1b[0m ${varName} [${env}]`);
+              success++;
+            } else {
+              failed++;
+            }
           }
         }
       }
