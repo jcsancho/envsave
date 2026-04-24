@@ -25,6 +25,7 @@ import {
   getDeploySecrets,
 } from "./vault.ts";
 import { activateLicense, checkLicense, getLicenseToken, hasValidLicense } from "./license.ts";
+import pkg from "../package.json" with { type: "json" };
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -155,6 +156,11 @@ async function main(): Promise<void> {
   if (!command || command === "help" || command === "--help" || command === "-h") {
     usage();
     checkEnvFiles();
+    return;
+  }
+
+  if (command === "--version" || command === "-v" || command === "version") {
+    console.log(pkg.version);
     return;
   }
 
