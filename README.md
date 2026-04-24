@@ -26,11 +26,11 @@ import { get } from "@envsave/cli";
 const openai = new OpenAI({ apiKey: get("es_7a3f2b1e9c8d4f6b2a1c3d5f") });
 ```
 
-This is the single problem this project is built around. Everything else — the CLI, the license server, the Python bridge, the cloud backup — exists to make opaque-key-based secrets practical to use day to day.
+This is the single problem this project is built around. Everything else — the CLI, the license server, the Python bridge, the Vercel push, the cloud backup — exists to make opaque-key-based secrets practical to use day to day.
 
 ## Pricing
 
-Local personal use is **free and unlimited** — store as many secrets as you want with no license. A license is only required to sync your vault to the cloud; activate one with `envsave activate <token>` — get yours at https://envsave.com.
+Local personal use is **free and unlimited** — store as many secrets as you want, on as many machines as you want, with no license required. A license is only needed to sync your vault to the EnvSave cloud (backup / restore / sync across machines). Activate one with `envsave activate <token>` — get yours at https://envsave.com.
 
 ## Installation
 
@@ -48,7 +48,15 @@ Python users:
 pip install envsave
 ```
 
+Check the installed version any time:
+
+```bash
+envsave --version
+```
+
 ## Activation
+
+Activation is only required for cloud sync. Local use works without it.
 
 ### Online (production)
 
@@ -92,12 +100,12 @@ You'll be prompted to set and confirm a master password.
 ```bash
 envsave set OPENAI_API_KEY sk-abc123
 #  Output:
-#    OPENAI_API_KEY → es_7a3f2b1e9c8d4f6b
+#    Added: OPENAI_API_KEY → es_7a3f2b1e9c8d4f6b
 #    Use this in your code to access OPENAI_API_KEY:
 #      envsave.get("es_7a3f2b1e9c8d4f6b")
 ```
 
-The opaque key (`es_...`) is an HMAC-SHA256 hash — no trace of the original key name.
+The opaque key (`es_...`) is an HMAC-SHA256 hash — no trace of the original key name. Re-running `envsave set` on an existing key updates the value in place; the opaque key stays the same, so you don't need to touch any code.
 
 ## Retrieving Secrets
 
@@ -106,6 +114,9 @@ The opaque key (`es_...`) is an HMAC-SHA256 hash — no trace of the original ke
 ```bash
 # By opaque key (tries session cache first, then prompts for password)
 envsave get es_7a3f2b1e9c8d4f6b
+
+# By clean name (password required — returns the plaintext value)
+envsave show OPENAI_API_KEY
 ```
 
 ### Node.js / Bun
@@ -131,28 +142,67 @@ api_key = get("es_7a3f2b1e9c8d4f6b")
 ## Other Commands
 
 ```bash
-# Show opaque key for a named secret (requires password)
-envsave reveal OPENAI_API_KEY
+# Show opaque key(s) for any name matching a keyword (password required)
+envsave reveal OPENAI                       # matches OPENAI_API_KEY, OPENAI_ORG, …
+envsave reveal OPENAI_API_KEY DATABASE_URL  # multiple keywords at once
 
-# Reveal multiple keys at once
-envsave reveal OPENAI_API_KEY DATABASE_URL STRIPE_KEY
+# Show the real value by clean name (password required)
+envsave show OPENAI_API_KEY
 
-# List all stored key names (requires password)
+# Search clean names without revealing opaque keys (no password if session is warm)
+envsave search openai
+
+# Scan the current project for hardcoded env references and opaque keys
+envsave scan [dir]
+
+# List all stored key names (password required)
 envsave list
 
-# Delete a secret (requires password)
+# Delete a secret (password required)
 envsave delete OPENAI_API_KEY
 
-# Bulk import from .env file (requires password)
+# Bulk import from .env file (password required)
 envsave import .env
 
-# Export all secrets as .env format (requires password)
+# Export all secrets as .env format (password required)
 envsave export
+
+# Change master password
+envsave passwd
+
+# Rate limit config (password required to change)
+envsave config                     # show current
+envsave config --max-gets 120      # set max gets/minute
+
+# Show version
+envsave --version
 ```
+
+## Deploying to Vercel
+
+`envsave vercel` pushes selected secrets to a Vercel project so serverless functions and build-time code both work without any `.env` on disk.
+
+```bash
+# In a directory already linked with `vercel link`
+envsave vercel OPENAI_API_KEY DATABASE_URL
+
+# Push by opaque id instead of clean name
+envsave vercel es_7a3f2b1e9c8d4f6b
+
+# Restrict to specific environments (default is production, preview, development)
+envsave vercel OPENAI_API_KEY --env production,preview
+```
+
+Each secret is uploaded under **both** the opaque id (`es_...`) and the clean name (`OPENAI_API_KEY`). That means:
+
+- **Build-time / server code** can keep calling `envsave.get("es_7a3f...")` — the opaque id is present as an env var, so no password or vault is needed in the deployed environment.
+- **Runtime serverless functions** that expect `process.env.OPENAI_API_KEY` keep working unchanged.
+
+Only the secrets you name on the command line are pushed — the rest of your vault stays local.
 
 ## Cloud Backup & Sync
 
-The encrypted vault can be backed up to the EnvSave cloud server for disaster recovery or syncing across machines. The server only stores the encrypted bytes — it never sees plaintext secrets.
+Requires an active license. The encrypted vault can be backed up to the EnvSave cloud server for disaster recovery or syncing across machines. The server only stores the encrypted bytes — it never sees plaintext secrets.
 
 ```bash
 # Upload encrypted vault to cloud
@@ -179,7 +229,7 @@ envsave sync
 
 ```bash
 # 1. Install envsave
-bun install @envsave/cli
+npm install -g @envsave/cli
 
 # 2. Activate with same license token
 envsave activate <token>
@@ -198,8 +248,9 @@ envsave list
 2. Stored at `~/.envsave/vault.enc` (binary: salt + iv + encrypted data + auth tag)
 3. Key names are HMAC-SHA256 hashes — fully opaque, no trace of original name
 4. Session cache stores decrypted secrets in memory — no password needed for repeated reads
-5. Optional SSH key adds a "something you have" hardware factor
-6. LLM agents only see opaque keys — they can read values but can't discover or enumerate secrets
+5. `envsave get` is rate-limited (configurable via `envsave config --max-gets`) to blunt automated scraping from a compromised session
+6. Optional SSH key adds a "something you have" hardware factor
+7. LLM agents only see opaque keys — they can read values but can't discover or enumerate secrets
 
 ## License Tokens
 
@@ -219,5 +270,5 @@ When a license token expires, the CLI automatically contacts the server to renew
 | File | Purpose |
 |------|---------|
 | `~/.envsave/vault.enc` | Encrypted vault |
-| `~/.envsave/license.json` | Activated license |
+| `~/.envsave/license.json` | Activated license (cloud sync only) |
 | `~/.envsave/session.json` | Session cache (decrypted secrets) |
