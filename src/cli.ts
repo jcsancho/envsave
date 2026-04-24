@@ -24,7 +24,7 @@ import {
   getRateLimitConfig,
   getDeploySecrets,
 } from "./vault.ts";
-import { activateLicense, checkLicense, getLicenseToken, hasValidLicense } from "./license.ts";
+import { activateLicense, checkLicense, getLicenseToken } from "./license.ts";
 import pkg from "../package.json" with { type: "json" };
 
 const args = process.argv.slice(2);
@@ -77,7 +77,7 @@ Usage:
   envsave backup                        Upload encrypted vault to server
   envsave restore                       Download vault backup from server
   envsave sync                          Sync vault with server (pull if cloud newer)
-  envsave vercel <key> [key2]...        Push secrets to Vercel as opaque env vars
+  envsave vercel <KEY|es_key>...        Push secrets to Vercel (accepts names or opaque keys)
   envsave help                          Show this help
 
 Security model:
@@ -457,9 +457,6 @@ async function main(): Promise<void> {
           console.log(k);
         }
         console.log(`\n${keys.length} secret(s). Use 'envsave reveal <KEY>' to get the opaque key.`);
-        if (!hasValidLicense()) {
-          console.log(`\x1b[33mFree tier: ${keys.length}/5 secrets used. Activate a license for unlimited.\x1b[0m`);
-        }
       }
       break;
     }
@@ -761,14 +758,7 @@ async function main(): Promise<void> {
       }
 
       if (keyArgs.length === 0) {
-        console.error("Usage: envsave vercel <es_key> [es_key2]... [--env production,preview]");
-        process.exit(1);
-      }
-
-      const invalidKeys = keyArgs.filter(k => !k.startsWith("es_"));
-      if (invalidKeys.length > 0) {
-        console.error(`Only opaque keys (es_...) are accepted. Use 'envsave reveal <NAME>' to get the opaque key.`);
-        console.error(`Invalid: ${invalidKeys.join(", ")}`);
+        console.error("Usage: envsave vercel <KEY|es_key> [KEY|es_key2]... [--env production,preview]");
         process.exit(1);
       }
 
@@ -776,7 +766,7 @@ async function main(): Promise<void> {
       const keysToPush = keyArgs;
 
       const secrets = getDeploySecrets(keysToPush, password);
-      const notFound = keysToPush.filter(k => !secrets.find(s => s.opaque === k));
+      const notFound = keysToPush.filter(k => !secrets.find(s => s.opaque === k || s.name === k));
 
       if (notFound.length > 0) {
         console.error(`Secrets not found: ${notFound.join(", ")}`);

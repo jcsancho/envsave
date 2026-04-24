@@ -28,9 +28,9 @@ const openai = new OpenAI({ apiKey: get("es_7a3f2b1e9c8d4f6b2a1c3d5f") });
 
 This is the single problem this project is built around. Everything else — the CLI, the license server, the Python bridge, the cloud backup — exists to make opaque-key-based secrets practical to use day to day.
 
-## Free tier
+## Pricing
 
-Up to **5 secrets** with no license. Beyond that you'll need to activate a license (`envsave activate <token>`) — get yours at https://envsave.com.
+Local personal use is **free and unlimited** — store as many secrets as you want with no license. A license is only required to sync your vault to the cloud; activate one with `envsave activate <token>` — get yours at https://envsave.com.
 
 ## Installation
 

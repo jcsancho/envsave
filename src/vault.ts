@@ -4,9 +4,6 @@ import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { encrypt, decrypt, encryptWithKey, decryptWithKey, hmacSha256 } from "./crypto.ts";
 import { parseEnvFile } from "./env-parser.ts";
-import { hasValidLicense } from "./license.ts";
-
-const FREE_TIER_MAX_SECRETS = 5;
 
 function getEnvsaveDir(): string {
   return process.env.ENVSAVE_DIR || join(homedir(), ".envsave");
@@ -333,10 +330,6 @@ export function initVault(password: string, options?: { envFile?: string; sshKey
   let count = 0;
   if (options?.envFile) {
     const envSecrets = parseEnvFile(options.envFile);
-    // Free tier limit check
-    if (!hasValidLicense() && Object.keys(envSecrets).length > FREE_TIER_MAX_SECRETS) {
-      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. .env file has ${Object.keys(envSecrets).length} keys.\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
-    }
     for (const [key, value] of Object.entries(envSecrets)) {
       const opaque = computeOpaqueName(hmacSeed, key, sshKeyContent);
       vault.secrets[opaque] = value;
@@ -357,13 +350,6 @@ export function setSecret(key: string, value: string, password: string): { opaqu
   const sshKeyContent = loadSshKey(vault);
   const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
   const updated = opaque in vault.secrets;
-
-  // Free tier limit: only enforce when adding a NEW key
-  if (!updated && !hasValidLicense()) {
-    if (vault.registry.length >= FREE_TIER_MAX_SECRETS) {
-      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Run 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
-    }
-  }
 
   vault.secrets[opaque] = value;
   if (!vault.registry.includes(key)) {
@@ -465,17 +451,6 @@ export function importEnv(filePath: string, password: string): number {
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
 
-  // Free tier limit check
-  if (!hasValidLicense()) {
-    const newKeys = Object.keys(envSecrets).filter(key => {
-      const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
-      return !(opaque in vault.secrets);
-    });
-    if (vault.registry.length + newKeys.length > FREE_TIER_MAX_SECRETS) {
-      throw new Error(`Free tier limit: max ${FREE_TIER_MAX_SECRETS} secrets. Import would add ${newKeys.length} new keys (${vault.registry.length} existing).\nRun 'envsave activate <token>' to unlock unlimited secrets.\nGet your license at https://api.envsave.com`);
-    }
-  }
-
   let count = 0;
   for (const [key, value] of Object.entries(envSecrets)) {
     const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
@@ -519,13 +494,20 @@ export function searchKeys(pattern: string): string[] {
   return cache.registry.filter(k => k.toLowerCase().includes(lower));
 }
 
-/** Get opaque key + real value pairs for given opaque keys. REQUIRES PASSWORD. */
-export function getDeploySecrets(opaqueKeys: string[], password: string): { name: string; opaque: string; value: string }[] {
+/**
+ * Get opaque key + real value pairs for given keys. Accepts either opaque
+ * keys (es_...) or clean names — clean names are resolved against the
+ * registry. REQUIRES PASSWORD.
+ */
+export function getDeploySecrets(keys: string[], password: string): { name: string; opaque: string; value: string }[] {
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
   writeSessionCache(vault.secrets, vault.registry);
   const results: { name: string; opaque: string; value: string }[] = [];
-  for (const opaque of opaqueKeys) {
+  for (const key of keys) {
+    const opaque = key.startsWith("es_")
+      ? key
+      : computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
     if (opaque in vault.secrets) {
       const cleanName = vault.registry?.find((r: string) => computeOpaqueName(vault.hmacSeed, r, sshKeyContent) === opaque) || opaque;
       results.push({ name: cleanName, opaque, value: vault.secrets[opaque] });
