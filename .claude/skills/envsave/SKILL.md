@@ -8,6 +8,31 @@ user_invocable: true
 
 When this skill is triggered, follow the instructions below. Everything you need to know is in this file. Do not research, explore, or investigate envsave — just execute the steps.
 
+## Installation
+
+EnvSave is installed from **npm** (not from a local path on the user's machine). The npm package is scoped: `@envsave/cli`.
+
+```bash
+# Global CLI (the `envsave` binary)
+npm install -g @envsave/cli
+
+# As a library in a project
+npm install @envsave/cli
+# or: bun add @envsave/cli
+
+# Python
+pip install envsave
+```
+
+If the user's project doesn't yet depend on envsave, add `@envsave/cli` to their dependencies before emitting `import` statements. Never tell the user to link from a local checkout — always use the npm package.
+
+**Upgrading from the old unscoped package:** if `npm install -g @envsave/cli` fails with `EEXIST` on `bin/envsave`, the user has the old unscoped `envsave` package installed globally (pre-rename). Fix it with:
+
+```bash
+npm uninstall -g envsave
+npm install -g @envsave/cli
+```
+
 ## If user asks to migrate / invokes `/envsave`:
 
 Execute these steps in order. Start with Step 1 immediately.
@@ -59,7 +84,7 @@ Tell user: run the command, paste back the output, and I'll do all code replacem
 
 Wait for opaque keys. Then:
 1. Replace `process.env.XXX` / `os.getenv("XXX")` with `envsave.get("es_actual_key")`
-2. Add `import envsave from "envsave"` (TS/JS) or `import envsave` (Python) if missing
+2. Add `import envsave from "@envsave/cli"` (TS/JS) or `import envsave` (Python) if missing
 3. Remove `dotenv`/`load_dotenv` imports and `.config()` calls
 4. List all `.env*` files found (`.env`, `.env.local`, `.env.production`, etc.) and **tell the user they must delete them** — these files contain real secrets in plain text and are no longer needed after migration to envsave. Add them to `.gitignore` if not already there.
 
@@ -73,7 +98,7 @@ Use `envsave.get("es_???")` as placeholder and ask user to provide the opaque ke
 
 **TypeScript/JavaScript:**
 ```typescript
-import envsave from "envsave";
+import envsave from "@envsave/cli";
 const apiKey = envsave.get("es_7a3f2b1e9c8d4f6b2a1c3d5f");
 ```
 

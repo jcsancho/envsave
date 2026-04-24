@@ -393,6 +393,32 @@ export function revealKey(cleanName: string, password: string): string | undefin
   return opaque in vault.secrets ? opaque : undefined;
 }
 
+/**
+ * Reveal opaque keys for all clean names matching one or more keyword patterns
+ * (case-insensitive substring match). REQUIRES PASSWORD + SSH KEY.
+ * Decrypts the vault once for all patterns.
+ */
+export function revealKeysByPattern(
+  patterns: string[],
+  password: string,
+): { pattern: string; matches: { name: string; opaque: string }[] }[] {
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+  writeSessionCache(vault.secrets, vault.registry);
+
+  return patterns.map(pattern => {
+    const lower = pattern.toLowerCase();
+    const matchingNames = vault.registry.filter(k => k.toLowerCase().includes(lower));
+    return {
+      pattern,
+      matches: matchingNames.map(name => ({
+        name,
+        opaque: computeOpaqueName(vault.hmacSeed, name, sshKeyContent),
+      })),
+    };
+  });
+}
+
 /** Get a secret from session cache by opaque key. NO PASSWORD NEEDED. */
 export function getSecretFromCache(opaqueKey: string): string | undefined {
   checkRateLimit();

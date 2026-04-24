@@ -18,6 +18,7 @@ import {
   importEnv,
   exportEnv,
   revealKey,
+  revealKeysByPattern,
   vaultExists,
   configureRateLimit,
   getRateLimitConfig,
@@ -62,7 +63,7 @@ Usage:
   envsave set <key> <value>             Add/update a secret (outputs opaque key)
   envsave get <opaque_key>              Retrieve a value (no password needed)
   envsave show <key>                    Show real value by key name (password required)
-  envsave reveal <key> [key2] [key3]... Show opaque key name(s) (password required)
+  envsave reveal <keyword> [keyword2]... Show opaque key(s) for any name matching keyword (password required)
   envsave delete <key>                  Remove a secret (password required)
   envsave search <keyword>              Search keys matching keyword (no password)
   envsave scan [dir]                    Scan project for env variable usage
@@ -231,25 +232,29 @@ async function main(): Promise<void> {
     }
 
     case "reveal": {
-      const keys = args.slice(1);
-      if (keys.length === 0) {
-        console.error("Usage: envsave reveal <key> [key2] [key3]...");
+      const patterns = args.slice(1);
+      if (patterns.length === 0) {
+        console.error("Usage: envsave reveal <keyword> [keyword2]...");
         process.exit(1);
       }
       const password = await requirePassword();
-      let notFound = 0;
-      for (const key of keys) {
-        const opaque = revealKey(key, password);
-        if (opaque) {
-          console.log(`\n  ${key} → ${opaque}`);
+      const results = revealKeysByPattern(patterns, password);
+      let totalMatches = 0;
+      let notFoundPatterns = 0;
+      for (const { pattern, matches } of results) {
+        if (matches.length === 0) {
+          console.error(`No keys matching '${pattern}'.`);
+          notFoundPatterns++;
+          continue;
+        }
+        for (const { name, opaque } of matches) {
+          console.log(`\n  ${name} → ${opaque}`);
           console.log(`    envsave.get("${opaque}")`);
-        } else {
-          console.error(`Secret '${key}' not found.`);
-          notFound++;
+          totalMatches++;
         }
       }
-      if (keys.length > 1 && notFound === 0) console.log();
-      if (notFound > 0 && notFound === keys.length) process.exit(1);
+      if (totalMatches > 0) console.log();
+      if (notFoundPatterns === patterns.length) process.exit(1);
       break;
     }
 
