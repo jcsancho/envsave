@@ -57,7 +57,11 @@ envsave --version
 ### Install as a Claude Skill (skills.sh)
 
 ```bash
+# Interactive (pick agent + scope from a TUI)
 npx skills add jcsancho/envsave
+
+# Non-interactive: install globally for Claude Code, no prompts
+npx skills add jcsancho/envsave -g -y --agent claude-code
 ```
 
 This installs the EnvSave skill into `~/.claude/skills/envsave/` so Claude Code automatically uses opaque keys whenever it touches secrets. Equivalent to `envsave install-skill --global` if you already have the CLI installed.
