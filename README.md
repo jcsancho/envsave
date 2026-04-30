@@ -54,6 +54,14 @@ Check the installed version any time:
 envsave --version
 ```
 
+### Install as a Claude Skill (skills.sh)
+
+```bash
+npx skills add jcsancho/envsave
+```
+
+This installs the EnvSave skill into `~/.claude/skills/envsave/` so Claude Code automatically uses opaque keys whenever it touches secrets. Equivalent to `envsave install-skill --global` if you already have the CLI installed.
+
 ## Activation
 
 Activation is only required for cloud sync. Local use works without it.
