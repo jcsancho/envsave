@@ -26,6 +26,17 @@ pip install envsave
 
 If the user's project doesn't yet depend on envsave, add `@envsave/cli` to their dependencies before emitting `import` statements. Never tell the user to link from a local checkout — always use the npm package.
 
+**Installing this skill in your agent:**
+
+```bash
+envsave install-skill              # interactive — asks local or global
+envsave install-skill --local      # → ./.claude/skills/envsave/SKILL.md (this project only)
+envsave install-skill --global     # → ~/.claude/skills/envsave/SKILL.md (all your projects)
+envsave install-skill --agent claude --global   # explicit agent
+```
+
+`--agent` defaults to `claude`. Codex and other agentic platforms are planned but not yet supported.
+
 **Upgrading from the old unscoped package:** if `npm install -g @envsave/cli` fails with `EEXIST` on `bin/envsave`, the user has the old unscoped `envsave` package installed globally (pre-rename). Fix it with:
 
 ```bash
@@ -158,5 +169,7 @@ The command automatically:
 |------|-------------|
 | Add a secret | `envsave set <NAME> <VALUE>` |
 | Get opaque key | `envsave reveal <NAME>` |
+| Rename a secret | `envsave rename <OLD_NAME> <NEW_NAME>` (creates new opaque key, deletes old — output prints OLD → NEW for code search-and-replace) |
 | Unlock vault | `envsave list` |
 | Push to Vercel | `envsave vercel KEY1 KEY2` |
+| Install this skill | `envsave install-skill [--agent <name>] [--local\|--global]` (claude only today) |

@@ -439,6 +439,41 @@ export function deleteSecret(key: string, password: string): boolean {
   return true;
 }
 
+/**
+ * Rename a secret. The value is moved to a fresh opaque key derived from the
+ * new clean name; the old opaque key is deleted. Code referencing the old
+ * `es_…` id must be updated to the new one.
+ */
+export function renameSecret(
+  oldName: string,
+  newName: string,
+  password: string,
+): { oldOpaque: string; newOpaque: string } {
+  if (oldName === newName) {
+    throw new Error("Old and new names are the same.");
+  }
+  const vault = readMainVault(password);
+  const sshKeyContent = loadSshKey(vault);
+
+  const oldOpaque = computeOpaqueName(vault.hmacSeed, oldName, sshKeyContent);
+  if (!vault.registry.includes(oldName) || !(oldOpaque in vault.secrets)) {
+    throw new Error(`Secret '${oldName}' not found.`);
+  }
+  if (vault.registry.includes(newName)) {
+    throw new Error(`Secret '${newName}' already exists.`);
+  }
+
+  const newOpaque = computeOpaqueName(vault.hmacSeed, newName, sshKeyContent);
+  const value = vault.secrets[oldOpaque];
+  vault.secrets[newOpaque] = value;
+  delete vault.secrets[oldOpaque];
+  vault.registry = vault.registry.map(k => (k === oldName ? newName : k));
+
+  writeMainVault(vault, password);
+  writeSessionCache(vault.secrets, vault.registry);
+  return { oldOpaque, newOpaque };
+}
+
 /** List clean key names only. Requires password. Also refreshes session cache. */
 export function listKeys(password: string): string[] {
   const vault = readMainVault(password);

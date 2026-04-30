@@ -161,6 +161,17 @@ envsave list
 # Delete a secret (password required)
 envsave delete OPENAI_API_KEY
 
+# Rename a secret (password required)
+# Creates a new opaque key derived from the new name, copies the value over,
+# and deletes the old opaque key. The output prints OLD → NEW for easy
+# search-and-replace in your code.
+envsave rename CLERK_SECRET_KEY_THEHOTELAGENTS CLERK_SECRET_KEY_DIRECTBOOKAI
+#  Output:
+#    Renamed: CLERK_SECRET_KEY_THEHOTELAGENTS → CLERK_SECRET_KEY_DIRECTBOOKAI
+#    Replace in your code:
+#      OLD (deleted):  es_7cXxcbsVaJQv...
+#      NEW (created):  es_enLaxEjzTO5r...
+
 # Bulk import from .env file (password required)
 envsave import .env
 
@@ -173,6 +184,13 @@ envsave passwd
 # Rate limit config (password required to change)
 envsave config                     # show current
 envsave config --max-gets 120      # set max gets/minute
+
+# Install the EnvSave skill into an agent platform
+# (--agent defaults to "claude" — codex and others are planned)
+envsave install-skill                            # interactive prompt for scope
+envsave install-skill --local                    # → ./.claude/skills/envsave/SKILL.md
+envsave install-skill --global                   # → ~/.claude/skills/envsave/SKILL.md
+envsave install-skill --agent claude --global    # explicit agent (claude only today)
 
 # Show version
 envsave --version

@@ -123,12 +123,14 @@ Your code doesn't change — `envsave.get("es_7a3f2b1e9c8d4f6b2a1c3d5f")` return
 | `envsave get <opaque_key>` | Retrieve value |
 | `envsave reveal <key> [key2]...` | Show opaque key(s) for name(s) (password required) |
 | `envsave delete <key>` | Remove secret (password required) |
+| `envsave rename <old> <new>` | Rename secret — creates a new opaque key, copies the value, deletes the old (password required) |
 | `envsave list` | List secret names (password required) |
 | `envsave import <file>` | Import from .env file (password required) |
 | `envsave export` | Export as .env format (password required) |
 | `envsave backup` | Upload encrypted vault to cloud server |
 | `envsave restore` | Download vault backup from cloud server |
 | `envsave sync` | Sync vault with cloud (auto-detects direction) |
+| `envsave install-skill [--agent <name>] [--local\|--global]` | Install the EnvSave skill for an agent platform (claude only today; codex/others planned). Prompts for scope when no flag. |
 
 ## Encryption Details
 

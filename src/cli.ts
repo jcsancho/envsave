@@ -4,7 +4,8 @@ import { createInterface } from "node:readline";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import {
   initVault,
@@ -23,6 +24,7 @@ import {
   configureRateLimit,
   getRateLimitConfig,
   getDeploySecrets,
+  renameSecret,
 } from "./vault.ts";
 import { activateLicense, checkLicense, getLicenseToken } from "./license.ts";
 import pkg from "../package.json" with { type: "json" };
@@ -66,6 +68,7 @@ Usage:
   envsave show <key>                    Show real value by key name (password required)
   envsave reveal <keyword> [keyword2]... Show opaque key(s) for any name matching keyword (password required)
   envsave delete <key>                  Remove a secret (password required)
+  envsave rename <old> <new>            Rename a secret (creates new opaque key, deletes old) (password required)
   envsave search <keyword>              Search keys matching keyword (no password)
   envsave scan [dir]                    Scan project for env variable usage
   envsave passwd                        Change master password
@@ -78,6 +81,9 @@ Usage:
   envsave restore                       Download vault backup from server
   envsave sync                          Sync vault with server (pull if cloud newer)
   envsave vercel <KEY|es_key>...        Push secrets to Vercel under both clean name + opaque id
+  envsave install-skill [--agent <name>] [--local|--global]
+                                        Install the EnvSave skill for an agent platform.
+                                        Supported: claude (default). Coming soon: codex, others.
   envsave help                          Show this help
 
 Security model:
@@ -322,6 +328,25 @@ async function main(): Promise<void> {
         console.error(`Secret '${key}' not found.`);
         process.exit(1);
       }
+      break;
+    }
+
+    case "rename": {
+      const oldName = args[1];
+      const newName = args[2];
+      if (!oldName || !newName) {
+        console.error("Usage: envsave rename <old> <new>");
+        process.exit(1);
+      }
+      const password = await requirePassword();
+      const { oldOpaque, newOpaque } = renameSecret(oldName, newName, password);
+      console.log(`\n  Renamed: ${oldName} → ${newName}`);
+      console.log(`\n  Replace in your code:`);
+      console.log(`    OLD (deleted):  ${oldOpaque}`);
+      console.log(`    NEW (created):  ${newOpaque}`);
+      console.log(`\n  Or replace the full call:`);
+      console.log(`    envsave.get("${oldOpaque}")`);
+      console.log(`    envsave.get("${newOpaque}")\n`);
       break;
     }
 
@@ -816,6 +841,82 @@ async function main(): Promise<void> {
 
       console.log(`\nDone: ${success} pushed, ${failed} failed.`);
       if (failed > 0) process.exit(1);
+      break;
+    }
+
+    case "install-skill": {
+      const SUPPORTED_AGENTS = ["claude"] as const;
+      type Agent = typeof SUPPORTED_AGENTS[number];
+
+      const agent = (getFlag("--agent") ?? "claude").toLowerCase();
+      if (!SUPPORTED_AGENTS.includes(agent as Agent)) {
+        console.error(`Agent '${agent}' is not yet supported.`);
+        console.error(`Supported today: ${SUPPORTED_AGENTS.join(", ")}. Coming soon: codex, others.`);
+        process.exit(1);
+      }
+
+      // Resolve packaged SKILL.md. When run from the npm bundle it sits next to
+      // dist/cli.js; when run from src/ during dev it lives under .claude/skills/.
+      const cliDir = dirname(fileURLToPath(import.meta.url));
+      const candidates = [
+        join(cliDir, "SKILL.md"),                                    // dist/SKILL.md (shipped)
+        join(cliDir, "..", ".claude", "skills", "envsave", "SKILL.md"), // dev (from src/)
+      ];
+      const skillSource = candidates.find(p => existsSync(p));
+      if (!skillSource) {
+        console.error("Skill source SKILL.md not found in the package.");
+        process.exit(1);
+      }
+
+      let scope: "local" | "global" | undefined;
+      if (args.includes("--local")) scope = "local";
+      else if (args.includes("--global")) scope = "global";
+
+      if (!scope) {
+        const rl = createInterface({ input: process.stdin, output: process.stderr });
+        const answer = await new Promise<string>((resolve) => {
+          rl.question(
+            `Install EnvSave skill for ${agent} — (l)ocally in this project or (g)lobally for your user? [l/g] `,
+            resolve,
+          );
+        });
+        rl.close();
+        const a = answer.trim().toLowerCase();
+        if (a === "l" || a === "local") scope = "local";
+        else if (a === "g" || a === "global") scope = "global";
+        else {
+          console.error("Cancelled — answer must be 'l' or 'g'.");
+          process.exit(1);
+        }
+      }
+
+      // Per-agent install paths. Today only Claude is wired up.
+      const agentDir: Record<Agent, string> = {
+        claude: ".claude",
+      };
+      const subdir = agentDir[agent as Agent];
+      const targetDir = scope === "local"
+        ? join(process.cwd(), subdir, "skills", "envsave")
+        : join(homedir(), subdir, "skills", "envsave");
+      const targetFile = join(targetDir, "SKILL.md");
+
+      if (existsSync(targetFile)) {
+        const rl = createInterface({ input: process.stdin, output: process.stderr });
+        const answer = await new Promise<string>((resolve) => {
+          rl.question(`Skill already exists at ${targetFile}. Overwrite? (y/N) `, resolve);
+        });
+        rl.close();
+        if (answer.trim().toLowerCase() !== "y") {
+          console.log("Install cancelled.");
+          break;
+        }
+      }
+
+      mkdirSync(targetDir, { recursive: true });
+      writeFileSync(targetFile, readFileSync(skillSource));
+      console.log(`\n  ✓ Installed EnvSave skill for ${agent} (${scope})`);
+      console.log(`    ${targetFile}\n`);
+      console.log(`  Restart your agent (or open the project) and invoke /envsave to use it.\n`);
       break;
     }
 
