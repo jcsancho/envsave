@@ -1,6 +1,6 @@
 {
   "name": "@envsave/cli",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "description": "Local secret vault for LLM-safe environments — encrypted secrets that agents can't bulk-discover",
   "type": "module",
   "main": "dist/index.js",
