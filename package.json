@@ -39,10 +39,13 @@
     "type": "git",
     "url": "git+https://github.com/jcsancho/envsave.git"
   },
-  "homepage": "https://api.envsave.com",
+  "homepage": "https://envsave.com",
   "author": "Jose C Sancho",
   "dependencies": {
     "@clerk/backend": "^3.2.1",
     "@supabase/supabase-js": "^2.99.2"
+  },
+  "bugs": {
+    "url": "https://github.com/jcsancho/envsave/issues"
   }
 }
