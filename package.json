@@ -13,8 +13,8 @@
     "python"
   ],
   "scripts": {
-    "prebuild": "bun -e \"const p=require('./package.json');const v=p.version.split('.');v[2]=+v[2]+1;p.version=v.join('.');require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "build": "bun build src/cli.ts --outdir dist --target node --format esm && bun build src/index.ts --outdir dist --target node --format esm --outfile dist/index.js && cp .claude/skills/envsave/SKILL.md dist/SKILL.md",
+    "release": "bun run scripts/release.ts",
     "dev": "bun run src/cli.ts",
     "webapp": "bun run webapp/server.ts",
     "lint:claude": "claude -p 'you are a linter. please look at the changes vs. main and report any issues related to typos. report the filename and line number on one line, and a description of the issue on the second line. do not return any other text.'"
