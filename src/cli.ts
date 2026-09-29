@@ -63,7 +63,7 @@ EnvSave — Local Secret Vault for LLM-Safe Environments
 Usage:
   envsave activate <token> [--offline]   Activate license (--offline skips server)
   envsave init [--env <f>] [--ssh-key <f>]  Initialize vault
-  envsave set <key> <value>             Add/update a secret (outputs opaque key)
+  envsave set <key> [value]             Add/update a secret (omit value to be prompted — safe for !, $, spaces)
   envsave get <opaque_key>              Retrieve a value (no password needed)
   envsave show <key>                    Show real value by key name (password required)
   envsave reveal <keyword> [keyword2]... Show opaque key(s) for any name matching keyword (password required)
@@ -113,22 +113,26 @@ async function promptPassword(prompt = "Master password: "): Promise<string> {
     }
 
     let password = "";
-    const onData = (ch: Buffer) => {
-      const c = ch.toString();
-      if (c === "\n" || c === "\r" || c === "\u0004") {
-        if (stdin.isTTY && stdin.setRawMode) {
-          stdin.setRawMode(wasRaw ?? false);
+    // Iterate per character: a paste arrives as a single chunk that may
+    // include the trailing Enter.
+    const onData = (chunk: Buffer) => {
+      for (const c of chunk.toString()) {
+        if (c === "\n" || c === "\r" || c === "\u0004") {
+          if (stdin.isTTY && stdin.setRawMode) {
+            stdin.setRawMode(wasRaw ?? false);
+          }
+          stdin.removeListener("data", onData);
+          process.stderr.write("\n");
+          rl.close();
+          resolve(password);
+          return;
+        } else if (c === "\u0003") {
+          process.exit(1);
+        } else if (c === "\u007F" || c === "\b") {
+          password = password.slice(0, -1);
+        } else {
+          password += c;
         }
-        stdin.removeListener("data", onData);
-        process.stderr.write("\n");
-        rl.close();
-        resolve(password);
-      } else if (c === "\u0003") {
-        process.exit(1);
-      } else if (c === "\u007F" || c === "\b") {
-        password = password.slice(0, -1);
-      } else {
-        password += c;
       }
     };
 
@@ -230,10 +234,20 @@ async function main(): Promise<void> {
 
     case "set": {
       const key = args[1];
-      const value = args[2];
-      if (!key || value === undefined) {
-        console.error("Usage: envsave set <key> <value>");
+      let value = args[2];
+      if (!key) {
+        console.error("Usage: envsave set <key> [value]");
         process.exit(1);
+      }
+      // Omitting the value prompts for it (hidden input), so characters the
+      // shell would mangle — like `!` (history expansion), `$`, or spaces —
+      // are stored verbatim and the secret never lands in shell history.
+      if (value === undefined) {
+        value = await promptPassword(`Value for ${key}: `);
+        if (!value) {
+          console.error("Error: value cannot be empty.");
+          process.exit(1);
+        }
       }
       const password = await requirePassword();
       const { opaque, updated } = setSecret(key, value, password);
@@ -757,20 +771,18 @@ async function main(): Promise<void> {
 
     case "vercel": {
 
-      // Check if project is linked to Vercel
+      // Check if project is linked to Vercel.
+      // Accept both link formats:
+      //   - .vercel/project.json (legacy, single-project link)
+      //   - .vercel/repo.json    (current, git-repo link with one or more projects)
       const vercelDir = join(process.cwd(), ".vercel");
       const vercelProjectJson = join(vercelDir, "project.json");
-      if (!existsSync(vercelProjectJson)) {
+      const vercelRepoJson = join(vercelDir, "repo.json");
+      if (!existsSync(vercelProjectJson) && !existsSync(vercelRepoJson)) {
         console.error("This project is not linked to Vercel.");
         console.error("Run 'vercel link' first to connect this directory to a Vercel project.");
         process.exit(1);
       }
-
-      let projectName = "unknown";
-      try {
-        const proj = JSON.parse(readFileSync(vercelProjectJson, "utf8"));
-        projectName = proj.projectId || "unknown";
-      } catch {}
 
       const envArg = getFlag("--env");
       const environments = envArg ? envArg.split(",") : ["production", "preview", "development"];

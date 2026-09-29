@@ -117,6 +117,13 @@ envsave set OPENAI_API_KEY sk-abc123
 #      envsave.get("es_7a3f2b1e9c8d4f6b")
 ```
 
+If the value contains characters your shell interprets — `!` (history expansion in zsh/bash), `$`, backticks, spaces — either single-quote it (`envsave set DB_PASS 'p@ss!word'`) or omit it and you'll be prompted with hidden input:
+
+```bash
+envsave set DB_PASS
+#  Value for DB_PASS: ********
+```
+
 The opaque key (`es_...`) is an HMAC-SHA256 hash — no trace of the original key name. Re-running `envsave set` on an existing key updates the value in place; the opaque key stays the same, so you don't need to touch any code.
 
 ## Retrieving Secrets
@@ -177,9 +184,9 @@ envsave delete OPENAI_API_KEY
 # Creates a new opaque key derived from the new name, copies the value over,
 # and deletes the old opaque key. The output prints OLD → NEW for easy
 # search-and-replace in your code.
-envsave rename CLERK_SECRET_KEY_THEHOTELAGENTS CLERK_SECRET_KEY_DIRECTBOOKAI
+envsave rename CLERK_SECRET_KEY_PROJECT_A CLERK_SECRET_KEY_PROJECT_B
 #  Output:
-#    Renamed: CLERK_SECRET_KEY_THEHOTELAGENTS → CLERK_SECRET_KEY_DIRECTBOOKAI
+#    Renamed: CLERK_SECRET_KEY_PROJECT_A → CLERK_SECRET_KEY_PROJECT_B
 #    Replace in your code:
 #      OLD (deleted):  es_7cXxcbsVaJQv...
 #      NEW (created):  es_enLaxEjzTO5r...

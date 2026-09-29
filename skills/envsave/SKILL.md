@@ -167,7 +167,7 @@ The command automatically:
 
 | Task | User Command |
 |------|-------------|
-| Add a secret | `envsave set <NAME> <VALUE>` |
+| Add a secret | `envsave set <NAME> <VALUE>` (quote values with `!`/`$`; omit VALUE to be prompted) |
 | Get opaque key | `envsave reveal <NAME>` |
 | Rename a secret | `envsave rename <OLD_NAME> <NEW_NAME>` (creates new opaque key, deletes old — output prints OLD → NEW for code search-and-replace) |
 | Unlock vault | `envsave list` |
