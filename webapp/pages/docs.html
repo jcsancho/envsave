@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation — EnvSave</title>
+  <meta name="description" content="Learn how to install EnvSave, store secrets in an encrypted local vault, and give AI agents opaque keys instead of real credentials.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #131316;
+      --surface-hover: #1a1a1f;
+      --border: #27272a;
+      --border-subtle: #1e1e22;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --accent: #10b981;
+      --accent-hover: #34d399;
+      --accent-glow: rgba(16, 185, 129, 0.15);
+      --purple: #8b5cf6;
+      --blue: #3b82f6;
+      --amber: #f59e0b;
+      --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 130px; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(9, 9, 11, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.1rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-brand svg { width: 28px; height: 28px; }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a {
+      color: var(--text-muted); text-decoration: none; font-size: 0.875rem;
+      font-weight: 500; transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+    .nav-cta {
+      background: var(--accent) !important; color: #000 !important;
+      padding: 8px 20px; border-radius: 8px; font-weight: 600 !important;
+      transition: background 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--accent-hover) !important; }
+
+    /* Doc tabs */
+    .doc-tabs {
+      border-top: 1px solid var(--border-subtle);
+    }
+    .doc-tabs-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 24px;
+      display: flex; gap: 24px; overflow-x: auto;
+    }
+    .doc-tabs a {
+      color: var(--text-dim); text-decoration: none;
+      font-size: 0.85rem; font-weight: 500;
+      padding: 12px 0; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .doc-tabs a:hover { color: var(--text); }
+    .doc-tabs a.active { color: var(--text); border-bottom-color: var(--accent); }
+
+    /* Layout */
+    .doc-layout {
+      max-width: 1100px; margin: 0 auto;
+      padding: 150px 24px 80px;
+      display: grid; grid-template-columns: 200px 1fr; gap: 56px;
+    }
+    .toc {
+      position: sticky; top: 130px; align-self: start;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .toc-label {
+      font-size: 0.7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-dim); margin: 16px 0 6px;
+    }
+    .toc-label:first-child { margin-top: 0; }
+    .toc a {
+      color: var(--text-muted); text-decoration: none;
+      font-size: 0.85rem; padding: 4px 0;
+      transition: color 0.2s;
+    }
+    .toc a:hover, .toc a.active { color: var(--accent); }
+
+    /* Content */
+    .doc { max-width: 720px; }
+    .doc h1 {
+      font-size: clamp(2rem, 4vw, 2.6rem);
+      font-weight: 800; letter-spacing: -0.03em;
+      margin-bottom: 14px;
+    }
+    .doc .lead {
+      font-size: 1.1rem; color: var(--text-muted);
+      line-height: 1.6; margin-bottom: 16px;
+    }
+    .doc h2 {
+      font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;
+      margin: 64px 0 14px; padding-top: 32px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .doc h3 {
+      font-size: 1.05rem; font-weight: 600;
+      margin: 32px 0 10px;
+    }
+    .doc p, .doc li {
+      font-size: 0.95rem; color: var(--text-muted); line-height: 1.7;
+    }
+    .doc p { margin-bottom: 14px; }
+    .doc ul, .doc ol { padding-left: 22px; margin-bottom: 14px; }
+    .doc li { margin-bottom: 6px; }
+    .doc strong { color: var(--text); font-weight: 600; }
+    .doc a { color: var(--accent); text-decoration: none; }
+    .doc a:hover { text-decoration: underline; }
+    .doc code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82em;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 5px;
+      padding: 1px 6px;
+      color: var(--text);
+    }
+
+    /* Code blocks */
+    .code-block {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      margin: 6px 0 20px;
+      overflow: hidden;
+    }
+    .code-block-header {
+      padding: 8px 14px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem; color: var(--text-dim);
+    }
+    .code-block-header button {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text-dim);
+      padding: 3px 10px; font-size: 0.72rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .code-block-header button:hover { color: var(--text); border-color: var(--text-dim); }
+    .code-block pre {
+      padding: 16px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem; line-height: 1.7;
+      color: var(--text-muted);
+      overflow-x: auto;
+    }
+    .code-block pre .kw { color: var(--purple); }
+    .code-block pre .fn { color: var(--blue); }
+    .code-block pre .str { color: var(--accent); }
+    .code-block pre .cm { color: var(--text-dim); }
+    .code-block pre .op { color: var(--amber); }
+
+    /* Callouts */
+    .callout {
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--accent);
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 6px 0 20px;
+    }
+    .callout.warn { border-left-color: var(--amber); }
+    .callout p { margin: 0; font-size: 0.9rem; }
+
+    /* Tables */
+    .doc table {
+      width: 100%; border-collapse: collapse;
+      margin: 6px 0 20px; font-size: 0.875rem;
+    }
+    .doc th, .doc td {
+      text-align: left; padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+    .doc th { color: var(--text); font-weight: 600; font-size: 0.8rem; }
+    .doc td { color: var(--text-muted); }
+    .doc td:first-child { white-space: nowrap; }
+
+    /* FAQ */
+    .doc details {
+      border: 1px solid var(--border-subtle);
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+    }
+    .doc details summary {
+      cursor: pointer; font-weight: 600; font-size: 0.95rem;
+      color: var(--text);
+    }
+    .doc details[open] summary { margin-bottom: 10px; }
+    .doc details p:last-child { margin-bottom: 0; }
+
+    /* Footer */
+    footer {
+      max-width: 1100px; margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px;
+    }
+    footer span { font-size: 0.8rem; color: var(--text-dim); }
+    footer a {
+      font-size: 0.8rem; color: var(--text-dim);
+      text-decoration: none; transition: color 0.2s;
+    }
+    footer a:hover { color: var(--text-muted); }
+
+    @media (max-width: 860px) {
+      .doc-layout { grid-template-columns: 1fr; gap: 0; }
+      .toc { display: none; }
+    }
+    @media (max-width: 640px) {
+      .nav-links a:not(.nav-cta) { display: none; }
+      .doc-layout { padding-top: 130px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="28" height="28" rx="6" fill="#10b981" fill-opacity="0.15"/>
+          <path d="M8 10.5C8 9.12 9.12 8 10.5 8H14L10 14H14L10 20H8V10.5Z" fill="#10b981"/>
+          <path d="M14 8H17.5C18.88 8 20 9.12 20 10.5V20H18L14 14H18L14 8Z" fill="#6ee7b7"/>
+        </svg>
+        EnvSave
+      </a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs" class="active">Docs</a>
+        <a href="https://github.com/jcsancho/envsave" target="_blank">GitHub</a>
+        <a href="/dashboard" class="nav-cta">Dashboard</a>
+      </div>
+    </div>
+    <div class="doc-tabs">
+      <div class="doc-tabs-inner">
+        <a href="#overview">Overview</a>
+        <a href="#getting-started">Getting started</a>
+        <a href="#cli">CLI</a>
+        <a href="#library">Library</a>
+        <a href="#agents">AI agents</a>
+        <a href="#cloud-sync">Cloud sync</a>
+        <a href="#security">Security</a>
+        <a href="#faq">FAQ</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="doc-layout">
+    <aside class="toc">
+      <span class="toc-label">Introduction</span>
+      <a href="#overview">What is EnvSave?</a>
+      <a href="#why">Why opaque keys?</a>
+      <a href="#pricing">Pricing</a>
+      <span class="toc-label">Guide</span>
+      <a href="#getting-started">Getting started</a>
+      <a href="#storing-secrets">Storing secrets</a>
+      <a href="#library">Using secrets in code</a>
+      <a href="#agents">AI agent skill</a>
+      <a href="#vercel">Deploying to Vercel</a>
+      <a href="#cloud-sync">Cloud backup &amp; sync</a>
+      <span class="toc-label">Reference</span>
+      <a href="#cli">CLI commands</a>
+      <a href="#security">Security model</a>
+      <a href="#files">File locations</a>
+      <a href="#faq">FAQ</a>
+    </aside>
+
+    <main class="doc">
+      <h1 id="overview">Documentation</h1>
+      <p class="lead">
+        Learn how to install EnvSave, keep your secrets in an encrypted local vault, and give
+        AI agents opaque keys instead of real credentials.
+      </p>
+      <p>
+        EnvSave is open source. The code is on
+        <a href="https://github.com/jcsancho/envsave" target="_blank">GitHub</a>, and the package is
+        <a href="https://www.npmjs.com/package/@envsave/cli" target="_blank"><code>@envsave/cli</code></a> on npm
+        and <a href="https://pypi.org/project/envsave/" target="_blank"><code>envsave</code></a> on PyPI.
+      </p>
+
+      <h2 id="what">What is EnvSave?</h2>
+      <p>
+        EnvSave is a local encrypted vault for API keys, tokens, passwords and database URLs. It replaces
+        <code>.env</code> files. Each secret is stored under an <strong>opaque key</strong>, such as
+        <code>es_7a3f2b1e9c8d4f6b</code>. Your code uses that key to read the value at runtime.
+      </p>
+      <p>
+        An AI agent can read your code, your terminal history and your project files, and it still learns
+        nothing useful. It sees only <code>es_...</code> keys. Those keys can't be reversed or listed,
+        and they don't work outside your vault.
+      </p>
+
+      <h3 id="why">Why opaque keys?</h3>
+      <p>If an LLM can read a real secret, anyone who can see the LLM's context can read it too.</p>
+      <ul>
+        <li><strong>Exfiltration</strong>: an agent with shell or HTTP access can send keys to an outside server or commit them to a public repo.</li>
+        <li><strong>Prompt injection</strong>: a malicious web page or PR description can tell the agent to print <code>.env</code> or your environment variables.</li>
+        <li><strong>Context leakage</strong>: once a key is in a transcript, it can be logged, cached or stored by third parties.</li>
+        <li><strong>Painful rotation</strong>: rotating a leaked production key means downtime, redeploys and finding every place it was pasted.</li>
+      </ul>
+      <div class="code-block">
+        <div class="code-block-header"><span>app.ts</span></div>
+        <pre><span class="cm">// ❌ The LLM sees the real key in your code</span>
+<span class="kw">const</span> openai <span class="op">=</span> <span class="kw">new</span> <span class="fn">OpenAI</span>({ apiKey: <span class="str">"sk-proj-abc123..."</span> });
+
+<span class="cm">// ❌ .env still holds the plaintext key, and agents read .env</span>
+<span class="kw">const</span> openai <span class="op">=</span> <span class="kw">new</span> <span class="fn">OpenAI</span>({ apiKey: process.env.OPENAI_API_KEY });
+
+<span class="cm">// ✅ The agent only ever sees "es_7a3f...", which is useless outside your vault</span>
+<span class="kw">import</span> { get } <span class="kw">from</span> <span class="str">"@envsave/cli"</span>;
+<span class="kw">const</span> openai <span class="op">=</span> <span class="kw">new</span> <span class="fn">OpenAI</span>({ apiKey: <span class="fn">get</span>(<span class="str">"es_7a3f2b1e9c8d4f6b"</span>) });</pre>
+      </div>
+
+      <h3 id="pricing">Pricing</h3>
+      <p>
+        Local use is <strong>free and unlimited</strong>: any number of secrets on any number of machines,
+        with no license. You only need a license to back up or sync your encrypted vault through the EnvSave cloud.
+        You can get a token from your <a href="/dashboard">dashboard</a>.
+      </p>
+
+      <h2 id="getting-started">Getting started</h2>
+      <h3>1. Install the CLI</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>npm install -g @envsave/cli</pre>
+      </div>
+      <p>For Python projects, install the bridge too. It reads the same vault:</p>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>pip install envsave</pre>
+      </div>
+
+      <h3>2. Create your vault</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre><span class="cm"># Creates ~/.envsave/vault.enc and asks you for a master password</span>
+envsave init
+
+<span class="cm"># Or import an existing .env file in the same step</span>
+envsave init --env .env
+
+<span class="cm"># Optional: require an SSH key as a second factor</span>
+envsave init --ssh-key ~/.ssh/id_ed25519</pre>
+      </div>
+
+      <h3>3. Install the agent skill</h3>
+      <p>The skill tells Claude Code to use opaque keys whenever it works with secrets:</p>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>npx skills add jcsancho/envsave</pre>
+      </div>
+
+      <h3 id="storing-secrets">4. Store a secret</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span></div>
+        <pre><span class="op">$</span> envsave set OPENAI_API_KEY
+<span class="str">Value for OPENAI_API_KEY: ********</span>
+<span class="str">Added: OPENAI_API_KEY → es_7a3f2b1e9c8d4f6b</span></pre>
+      </div>
+      <div class="callout">
+        <p>
+          Leave the value out and EnvSave asks for it with hidden input. This keeps it out of your shell
+          history and protects characters like <code>!</code>, <code>$</code> and backticks.
+          If you run <code>envsave set</code> again on an existing name, the value is replaced and the
+          opaque key stays the same, so you don't need to change any code.
+        </p>
+      </div>
+
+      <h3>5. Use it in your code</h3>
+      <p>Replace <code>process.env.OPENAI_API_KEY</code> with <code>get("es_7a3f2b1e9c8d4f6b")</code>. See <a href="#library">Using secrets in code</a> below.</p>
+
+      <h2 id="library">Using secrets in code</h2>
+      <h3>Node.js / Bun</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>npm install @envsave/cli</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-block-header"><span>app.ts</span></div>
+        <pre><span class="kw">import</span> { get, has } <span class="kw">from</span> <span class="str">"@envsave/cli"</span>;
+
+<span class="kw">const</span> apiKey <span class="op">=</span> <span class="fn">get</span>(<span class="str">"es_7a3f2b1e9c8d4f6b"</span>);
+
+<span class="kw">if</span> (<span class="fn">has</span>(<span class="str">"es_7a3f2b1e9c8d4f6b"</span>)) {
+  <span class="cm">// secret exists</span>
+}</pre>
+      </div>
+      <h3>Python</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>app.py</span></div>
+        <pre><span class="kw">from</span> envsave <span class="kw">import</span> get
+
+api_key <span class="op">=</span> <span class="fn">get</span>(<span class="str">"es_7a3f2b1e9c8d4f6b"</span>)</pre>
+      </div>
+      <p>
+        Reads are served from an unlocked session cache, so you enter the master password once per session
+        instead of once per read.
+      </p>
+
+      <h2 id="agents">AI agent skill</h2>
+      <p>
+        The EnvSave skill teaches your coding agent to never hardcode or print secrets. It always writes
+        <code>get("es_...")</code> calls instead. Invoke it with <code>/envsave</code> to migrate an existing
+        project. The agent finds every <code>process.env</code>, <code>os.getenv</code>, <code>dotenv</code>
+        import and hardcoded key, then gives you a single <code>envsave reveal</code> command to look up their opaque keys.
+      </p>
+      <h3>Install with skills.sh</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre><span class="cm"># Interactive: pick the agent and scope</span>
+npx skills add jcsancho/envsave
+
+<span class="cm"># Non-interactive: global install for Claude Code</span>
+npx skills add jcsancho/envsave -g -y --agent claude-code</pre>
+      </div>
+      <h3>Install with the CLI</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>envsave install-skill            <span class="cm"># asks: this project or all projects</span>
+envsave install-skill --local    <span class="cm"># → ./.claude/skills/envsave/SKILL.md</span>
+envsave install-skill --global   <span class="cm"># → ~/.claude/skills/envsave/SKILL.md</span></pre>
+      </div>
+      <div class="callout">
+        <p>Claude Code is supported today. Codex and other agent platforms are planned.</p>
+      </div>
+
+      <h2 id="vercel">Deploying to Vercel</h2>
+      <p>
+        <code>envsave vercel</code> pushes only the secrets you name to a linked Vercel project. You don't need
+        a <code>.env</code> file on disk, and you don't need the vault in production.
+      </p>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre><span class="cm"># In a directory linked with `vercel link`</span>
+envsave vercel OPENAI_API_KEY DATABASE_URL
+
+<span class="cm"># Restrict environments (default: production, preview, development)</span>
+envsave vercel OPENAI_API_KEY --env production,preview</pre>
+      </div>
+      <p>
+        Each secret is uploaded twice: under its opaque key and under its clean name. Code that calls
+        <code>get("es_...")</code> still works, and so does code that reads <code>process.env.OPENAI_API_KEY</code>.
+      </p>
+
+      <h2 id="cloud-sync">Cloud backup &amp; sync</h2>
+      <p>
+        With a license, you can back up your vault to the EnvSave cloud and sync it across machines. The server
+        stores <strong>only the encrypted bytes</strong> and never sees plaintext secrets.
+      </p>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>envsave activate &lt;token&gt;   <span class="cm"># once per machine, token from your dashboard</span>
+envsave backup             <span class="cm"># upload the encrypted vault</span>
+envsave restore            <span class="cm"># download it (asks before overwriting)</span>
+envsave sync               <span class="cm"># figure out the direction automatically</span></pre>
+      </div>
+      <table>
+        <thead><tr><th>Situation</th><th>What <code>envsave sync</code> does</th></tr></thead>
+        <tbody>
+          <tr><td>Same checksum</td><td>Reports "Already in sync"</td></tr>
+          <tr><td>Local vault only</td><td>Pushes to the cloud</td></tr>
+          <tr><td>Cloud backup only</td><td>Pulls from the cloud</td></tr>
+          <tr><td>Both exist but differ</td><td>Asks: pull, push or cancel</td></tr>
+          <tr><td>Neither exists</td><td>Tells you to run <code>envsave init</code></td></tr>
+        </tbody>
+      </table>
+      <h3>Setting up a new machine</h3>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>npm install -g @envsave/cli
+envsave activate &lt;token&gt;
+envsave sync
+envsave list</pre>
+      </div>
+      <p>
+        License tokens renew automatically. When a token expires and your subscription is still active,
+        the CLI gets a new one and finishes the command you ran.
+      </p>
+
+      <h2 id="cli">CLI commands</h2>
+      <table>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>init [--env f] [--ssh-key f]</code></td><td>Create the vault, optionally importing a <code>.env</code> file or adding an SSH key factor</td></tr>
+          <tr><td><code>set KEY [value]</code></td><td>Add or update a secret and print its opaque key. Without a value, it asks with hidden input</td></tr>
+          <tr><td><code>get es_...</code></td><td>Print a value by opaque key (rate-limited)</td></tr>
+          <tr><td><code>show KEY</code></td><td>Print a value by its clean name (password required)</td></tr>
+          <tr><td><code>reveal KEYWORD...</code></td><td>Show the opaque keys of names matching one or more keywords</td></tr>
+          <tr><td><code>search TERM</code></td><td>Search names without revealing opaque keys</td></tr>
+          <tr><td><code>list</code></td><td>List all secret names</td></tr>
+          <tr><td><code>rename OLD NEW</code></td><td>Rename a secret and print the old and new opaque keys so you can update your code</td></tr>
+          <tr><td><code>delete KEY</code></td><td>Delete a secret</td></tr>
+          <tr><td><code>import .env</code></td><td>Import secrets from a <code>.env</code> file</td></tr>
+          <tr><td><code>export</code></td><td>Print all secrets in <code>.env</code> format</td></tr>
+          <tr><td><code>scan [dir]</code></td><td>Find environment variable references and opaque keys in a project</td></tr>
+          <tr><td><code>passwd</code></td><td>Change the master password</td></tr>
+          <tr><td><code>config --max-gets n</code></td><td>Set the maximum number of <code>get</code> calls per minute</td></tr>
+          <tr><td><code>vercel KEY... [--env ...]</code></td><td>Push selected secrets to a Vercel project</td></tr>
+          <tr><td><code>activate &lt;token&gt;</code></td><td>Activate a license for cloud sync</td></tr>
+          <tr><td><code>backup</code> / <code>restore</code> / <code>sync</code></td><td>Cloud backup and sync of the encrypted vault</td></tr>
+          <tr><td><code>install-skill [--local|--global]</code></td><td>Install the agent skill</td></tr>
+          <tr><td><code>--version</code></td><td>Show the installed version</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="security">Security model</h2>
+      <ul>
+        <li>The vault is encrypted with <strong>AES-256-GCM</strong>. The key is derived from your master password with <strong>PBKDF2</strong>.</li>
+        <li>Opaque keys are <strong>HMAC-SHA256</strong> hashes, so they reveal nothing about a secret's name or value.</li>
+        <li>An optional SSH key adds a "something you have" factor.</li>
+        <li><code>envsave get</code> is rate-limited to slow down automated scraping from a compromised session.</li>
+        <li>Agents can read a value only when they already know its opaque key. They can't list or discover other secrets.</li>
+        <li>Cloud backups are end-to-end encrypted. The server stores ciphertext only.</li>
+      </ul>
+      <div class="callout warn">
+        <p>
+          If you forget your master password, EnvSave can't recover it. A cloud backup is encrypted
+          with the same password, so keep the password in a password manager.
+        </p>
+      </div>
+
+      <h3 id="files">File locations</h3>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>~/.envsave/vault.enc</code></td><td>Encrypted vault</td></tr>
+          <tr><td><code>~/.envsave/session.json</code></td><td>Session cache for the unlocked vault</td></tr>
+          <tr><td><code>~/.envsave/license.json</code></td><td>Activated license (cloud sync only)</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="faq">FAQ</h2>
+      <details>
+        <summary>Can an agent just run <code>envsave export</code> or <code>envsave list</code>?</summary>
+        <p>
+          Not without your master password. Commands that list names or print values by name always ask for it.
+          A session only lets code read values by an opaque key it already knows.
+        </p>
+      </details>
+      <details>
+        <summary>Do I need to change code when I rotate a key?</summary>
+        <p>No. Run <code>envsave set KEY</code> again. The opaque key comes from the name, so it stays the same.</p>
+      </details>
+      <details>
+        <summary>How do I find the opaque key for a secret I already stored?</summary>
+        <p>Run <code>envsave reveal NAME</code>. You can pass several names or keywords at once and enter the password once.</p>
+      </details>
+      <details>
+        <summary><code>npm install -g @envsave/cli</code> fails with <code>EEXIST</code>.</summary>
+        <p>
+          You still have the old unscoped package installed. Run <code>npm uninstall -g envsave</code>, then
+          install <code>@envsave/cli</code> again.
+        </p>
+      </details>
+      <details>
+        <summary>Is it free?</summary>
+        <p>Yes. Local use is free and unlimited. You only need a license for cloud backup and sync.</p>
+      </details>
+      <details>
+        <summary>How do I report a security issue?</summary>
+        <p>
+          Please open a private security advisory on
+          <a href="https://github.com/jcsancho/envsave/security" target="_blank">GitHub</a>
+          instead of a public issue.
+        </p>
+      </details>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <span>EnvSave &copy; 2026 &middot; Built for developers who run AI agents</span>
+    <div style="display:flex;gap:20px">
+      <a href="https://github.com/jcsancho/envsave">GitHub</a>
+      <a href="https://www.npmjs.com/package/@envsave/cli">npm</a>
+      <a href="/docs">Docs</a>
+      <a href="/dashboard">Dashboard</a>
+    </div>
+  </footer>
+
+  <script>
+    // Copy buttons copy the block's text without "# comments" or "$ " prompts
+    document.querySelectorAll("[data-copy]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const text = btn.closest(".code-block").querySelector("pre").innerText
+          .split("\n")
+          .map((l) => l.replace(/\s+#.*$/, "").replace(/^\$ /, ""))
+          .filter((l) => l.trim() && !l.trim().startsWith("#"))
+          .join("\n");
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = "Copied!";
+          setTimeout(() => (btn.textContent = "Copy"), 1500);
+        }).catch(() => {});
+      });
+    });
+
+    // Highlight the current section in the TOC and tabs
+    const links = document.querySelectorAll(".toc a, .doc-tabs a");
+    const targets = [...new Set([...links].map((a) => a.getAttribute("href")))]
+      .map((h) => document.querySelector(h)).filter(Boolean);
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        const id = "#" + e.target.id;
+        links.forEach((a) => a.classList.toggle("active", a.getAttribute("href") === id));
+      });
+    }, { rootMargin: "-130px 0px -70% 0px" });
+    targets.forEach((t) => observer.observe(t));
+  </script>
+</body>
+</html>

@@ -27,12 +27,16 @@ function injectClerkKey(html: string): string {
 // Read HTML files
 const indexHtml = await Bun.file(import.meta.dir + "/pages/index.html").text();
 const dashboardHtml = await Bun.file(import.meta.dir + "/pages/dashboard.html").text();
+const docsHtml = await Bun.file(import.meta.dir + "/pages/docs.html").text();
 
 Bun.serve({
   port: PORT,
   routes: {
     // Pages
     "/": () => new Response(injectClerkKey(indexHtml), {
+      headers: { "Content-Type": "text/html" },
+    }),
+    "/docs": () => new Response(docsHtml, {
       headers: { "Content-Type": "text/html" },
     }),
     "/dashboard": () => new Response(injectClerkKey(dashboardHtml), {
