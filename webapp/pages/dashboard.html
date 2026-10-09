@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — EnvSave</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #09090b;
@@ -225,6 +222,17 @@
       display: flex; justify-content: center;
       padding: 80px 0;
     }
+    .legal-note { text-align: center; font-size: 0.8rem; color: var(--text-dim); margin-top: -48px; }
+    .legal-note a, .site-footer a { color: var(--text-dim); }
+    .legal-note a:hover, .site-footer a:hover { color: var(--text-muted); }
+    .site-footer {
+      max-width: 900px; margin: 40px auto 0; padding: 24px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      font-size: 0.8rem; color: var(--text-dim);
+    }
+    .site-footer div { display: flex; gap: 20px; flex-wrap: wrap; }
+    .site-footer a { text-decoration: none; }
   </style>
 </head>
 <body>
@@ -258,6 +266,7 @@
       <h1 class="page-title">Sign in to continue</h1>
       <p class="page-desc">Sign in with your account to access your EnvSave dashboard.</p>
       <div id="clerk-signin-mount"></div>
+      <p class="legal-note">By signing in you agree to our <a href="/terms">Terms of Service</a> and acknowledge our <a href="/privacy">Privacy Policy</a>.</p>
     </div>
 
     <!-- Dashboard state -->
@@ -375,6 +384,17 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer">
+    <span>EnvSave &copy; 2026</span>
+    <div>
+      <a href="/docs">Docs</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/cookies">Cookies</a>
+      <a href="#" data-cookie-settings>Cookie settings</a>
+    </div>
+  </footer>
 
   <script>
     const CLERK_KEY = "__CLERK_PUBLISHABLE_KEY__";
@@ -542,5 +562,6 @@
 
     initApp();
   </script>
+  <script src="/consent.js" defer></script>
 </body>
 </html>

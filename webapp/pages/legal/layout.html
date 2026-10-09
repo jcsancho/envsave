@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>__TITLE__ — EnvSave</title>
+  <meta name="description" content="__DESCRIPTION__">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #131316;
+      --border: #27272a;
+      --border-subtle: #1e1e22;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --accent: #10b981;
+      --accent-hover: #34d399;
+      --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(9, 9, 11, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.1rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-brand svg { width: 28px; height: 28px; }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a {
+      color: var(--text-muted); text-decoration: none; font-size: 0.875rem;
+      font-weight: 500; transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+    .nav-cta {
+      background: var(--accent) !important; color: #000 !important;
+      padding: 8px 20px; border-radius: 8px; font-weight: 600 !important;
+      transition: background 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--accent-hover) !important; }
+
+    /* Content */
+    .doc {
+      max-width: 760px; margin: 0 auto;
+      padding: 130px 24px 80px;
+    }
+    .doc h1 {
+      font-size: clamp(2rem, 4vw, 2.6rem);
+      font-weight: 800; letter-spacing: -0.03em;
+      margin-bottom: 14px;
+    }
+    .doc .lead {
+      font-size: 1.1rem; color: var(--text-muted);
+      line-height: 1.6; margin-bottom: 8px;
+    }
+    .doc .updated { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 8px; }
+    .doc h2 {
+      font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em;
+      margin: 48px 0 14px; padding-top: 28px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .doc h3 { font-size: 1.05rem; font-weight: 600; margin: 28px 0 10px; }
+    .doc p, .doc li { font-size: 0.95rem; color: var(--text-muted); line-height: 1.7; }
+    .doc p { margin-bottom: 14px; }
+    .doc ul, .doc ol { padding-left: 22px; margin-bottom: 14px; }
+    .doc li { margin-bottom: 6px; }
+    .doc strong { color: var(--text); font-weight: 600; }
+    .doc a { color: var(--accent); text-decoration: none; }
+    .doc a:hover { text-decoration: underline; }
+    .doc code {
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.82em;
+      background: var(--surface); border: 1px solid var(--border-subtle);
+      padding: 2px 6px; border-radius: 5px; color: var(--text);
+    }
+    .doc .table-wrap { overflow-x: auto; margin: 6px 0 20px; }
+    .doc table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .doc th, .doc td {
+      text-align: left; padding: 10px 12px; vertical-align: top;
+      border-bottom: 1px solid var(--border-subtle); color: var(--text-muted);
+    }
+    .doc th { color: var(--text); font-weight: 600; font-size: 0.8rem; }
+    .doc .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px; margin: 6px 0 20px;
+    }
+    .doc .card p:last-child { margin-bottom: 0; }
+    .doc button.link {
+      background: var(--accent); color: #000; border: 0; border-radius: 8px;
+      padding: 9px 18px; font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    }
+    .doc button.link:hover { background: var(--accent-hover); }
+
+    /* Footer */
+    footer {
+      max-width: 1100px; margin: 0 auto;
+      padding: 24px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px;
+    }
+    footer span { font-size: 0.8rem; color: var(--text-dim); }
+    footer a {
+      font-size: 0.8rem; color: var(--text-dim);
+      text-decoration: none; transition: color 0.2s;
+    }
+    footer a:hover { color: var(--text-muted); }
+
+    @media (max-width: 640px) {
+      .nav-links a:not(.nav-cta) { display: none; }
+      .doc { padding-top: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="28" height="28" rx="6" fill="#10b981" fill-opacity="0.15"/>
+          <path d="M8 10.5C8 9.12 9.12 8 10.5 8H14L10 14H14L10 20H8V10.5Z" fill="#10b981"/>
+          <path d="M14 8H17.5C18.88 8 20 9.12 20 10.5V20H18L14 14H18L14 8Z" fill="#6ee7b7"/>
+        </svg>
+        EnvSave
+      </a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs">Docs</a>
+        <a href="https://github.com/jcsancho/envsave" target="_blank">GitHub</a>
+        <a href="/dashboard" class="nav-cta">Dashboard</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="doc">
+__CONTENT__
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <span>EnvSave &copy; 2026 &middot; Built for developers who run AI agents</span>
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <a href="/docs">Docs</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/cookies">Cookies</a>
+      <a href="#" data-cookie-settings>Cookie settings</a>
+    </div>
+  </footer>
+
+  <script src="/consent.js" defer></script>
+</body>
+</html>

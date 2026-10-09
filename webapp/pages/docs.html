@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Documentation — EnvSave</title>
   <meta name="description" content="Learn how to install EnvSave, store secrets in an encrypted local vault, and give AI agents opaque keys instead of real credentials.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #09090b;
@@ -610,11 +607,15 @@ envsave list</pre>
   <!-- Footer -->
   <footer>
     <span>EnvSave &copy; 2026 &middot; Built for developers who run AI agents</span>
-    <div style="display:flex;gap:20px">
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
       <a href="https://github.com/jcsancho/envsave">GitHub</a>
       <a href="https://www.npmjs.com/package/@envsave/cli">npm</a>
       <a href="/docs">Docs</a>
       <a href="/dashboard">Dashboard</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/cookies">Cookies</a>
+      <a href="#" data-cookie-settings>Cookie settings</a>
     </div>
   </footer>
 
@@ -647,5 +648,6 @@ envsave list</pre>
     }, { rootMargin: "-130px 0px -70% 0px" });
     targets.forEach((t) => observer.observe(t));
   </script>
+  <script src="/consent.js" defer></script>
 </body>
 </html>

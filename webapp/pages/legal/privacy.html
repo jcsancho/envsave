@@ -1,0 +1,121 @@
+    <h1>Privacy Policy</h1>
+    <p class="lead">What personal data EnvSave processes, why, and the rights you have over it.</p>
+    <p class="updated">Last updated: __LEGAL_UPDATED__</p>
+
+    <div class="card">
+      <p><strong>Short version:</strong> your secrets never leave your machine unencrypted. The EnvSave CLI
+        works fully offline. If you create an account and use cloud backup, we store your email address,
+        your license token and an encrypted copy of your vault that we cannot decrypt. We don't sell data,
+        and we don't use analytics or advertising trackers.</p>
+    </div>
+
+    <h2 id="controller">1. Data controller</h2>
+    <p>The controller responsible for your personal data is:</p>
+    <ul>
+      <li><strong>Name:</strong> __LEGAL_NAME__</li>
+      <li><strong>Email:</strong> <a href="mailto:__LEGAL_EMAIL__">__LEGAL_EMAIL__</a></li>
+    </ul>
+
+    <h2 id="data">2. What data we process</h2>
+    <h3>Local CLI and libraries</h3>
+    <p>The <code>envsave</code> CLI, the Node library and the Python bridge store your secrets in an
+      encrypted file on your own computer (<code>~/.envsave/vault.enc</code>). This data is never sent to us
+      unless you run a cloud command such as <code>envsave backup</code> or <code>envsave sync</code>.</p>
+
+    <h3>Account data (only if you sign up)</h3>
+    <ul>
+      <li><strong>Identity data:</strong> email address and an internal user ID. Sign-in is provided by Clerk,
+        which may also process your name, profile picture and sign-in method if you use a social login.</li>
+      <li><strong>License data:</strong> your license token and its creation and expiry dates.</li>
+    </ul>
+
+    <h3>Encrypted vault backups (only if you use cloud backup)</h3>
+    <p>When you run <code>envsave backup</code> or <code>envsave sync</code>, your vault file is uploaded
+      <strong>already encrypted</strong> with AES-256-GCM using a key derived from your password on your
+      machine. We store the encrypted file, its size, a SHA-256 checksum and timestamps. We do not have
+      your password and cannot read your secrets.</p>
+
+    <h3>Technical data</h3>
+    <ul>
+      <li><strong>Server logs:</strong> when you visit the website or the CLI contacts our API, our web server
+        processes your IP address, request time, requested URL and user agent to deliver the service and
+        protect it against abuse.</li>
+      <li><strong>Cookies and local storage:</strong> see our <a href="/cookies">Cookie Policy</a>.</li>
+    </ul>
+
+    <h2 id="purposes">3. Purposes and legal bases</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Purpose</th><th>Data</th><th>Legal basis (GDPR)</th></tr></thead>
+        <tbody>
+          <tr><td>Create and manage your account, issue and validate license tokens</td><td>Identity, license data</td><td>Performance of a contract, Art. 6(1)(b)</td></tr>
+          <tr><td>Store and return your encrypted vault backups</td><td>Encrypted vault, metadata</td><td>Performance of a contract, Art. 6(1)(b)</td></tr>
+          <tr><td>Keep the service secure and prevent abuse</td><td>Server logs</td><td>Legitimate interest, Art. 6(1)(f)</td></tr>
+          <tr><td>Load web fonts from Google Fonts</td><td>IP address, browser details</td><td>Consent, Art. 6(1)(a)</td></tr>
+          <tr><td>Answer your messages and service notices</td><td>Email, message content</td><td>Contract or legitimate interest, Art. 6(1)(b)/(f)</td></tr>
+          <tr><td>Meet legal obligations</td><td>As required</td><td>Legal obligation, Art. 6(1)(c)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>We don't use your data for automated decision-making or profiling, and we don't send marketing emails.</p>
+
+    <h2 id="processors">4. Service providers</h2>
+    <p>We use these providers (processors) to run EnvSave. Each processes data only on our instructions:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Provider</th><th>Role</th><th>Data</th></tr></thead>
+        <tbody>
+          <tr><td>Clerk, Inc. (USA)</td><td>Authentication and sign-in</td><td>Identity data, session cookies, IP address</td></tr>
+          <tr><td>Supabase, Inc. (USA)</td><td>Database</td><td>Email, user ID, license data, encrypted vault backups</td></tr>
+          <tr><td>DigitalOcean, LLC (USA)</td><td>Server hosting</td><td>Server logs, data in transit</td></tr>
+          <tr><td>jsDelivr / Cloudflare (global CDN)</td><td>Delivers the Clerk sign-in script</td><td>IP address, user agent</td></tr>
+          <tr><td>Google Ireland Ltd. / Google LLC</td><td>Google Fonts (only with your consent)</td><td>IP address, user agent</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="transfers">5. International transfers</h2>
+    <p>Some of these providers are located in, or may access data from, the United States. Where that happens,
+      transfers rely on the EU–US Data Privacy Framework for certified providers or on the European
+      Commission's Standard Contractual Clauses (Art. 46 GDPR).</p>
+
+    <h2 id="retention">6. How long we keep data</h2>
+    <ul>
+      <li><strong>Account and license data:</strong> while your account exists. When you ask us to delete your
+        account, we delete it within 30 days.</li>
+      <li><strong>Encrypted vault backup:</strong> only the latest backup is kept; each upload replaces the
+        previous one. It is deleted together with your account.</li>
+      <li><strong>Server logs:</strong> up to 30 days, unless needed to investigate an abuse or security incident.</li>
+      <li><strong>Consent record:</strong> stored in your browser until you clear it or change your choice.</li>
+    </ul>
+    <p>We may keep some data longer where the law requires it.</p>
+
+    <h2 id="rights">7. Your rights</h2>
+    <p>Under the GDPR you have the right to:</p>
+    <ul>
+      <li>access the personal data we hold about you;</li>
+      <li>have inaccurate data corrected;</li>
+      <li>have your data deleted ("right to be forgotten");</li>
+      <li>restrict or object to processing based on legitimate interest;</li>
+      <li>receive your data in a portable format;</li>
+      <li>withdraw consent at any time, without affecting processing that happened before. For cookies,
+        use the <a href="#" data-cookie-settings>cookie settings</a>.</li>
+    </ul>
+    <p>To exercise these rights, email <a href="mailto:__LEGAL_EMAIL__">__LEGAL_EMAIL__</a> from the address
+      linked to your account. We reply within one month. You may also complain to a data protection authority.
+      In Spain this is the Agencia Española de Protección de Datos
+      (<a href="https://www.aepd.es" target="_blank" rel="noopener">aepd.es</a>).</p>
+
+    <h2 id="security">8. Security</h2>
+    <p>Secrets are encrypted on your device with AES-256-GCM before any upload, all traffic uses HTTPS, and
+      license tokens are signed server-side. No system is perfectly secure, so please use a strong vault password
+      and keep your license token private. Report vulnerabilities via a
+      <a href="https://github.com/jcsancho/envsave/security" target="_blank" rel="noopener">GitHub security advisory</a>.</p>
+
+    <h2 id="children">9. Children</h2>
+    <p>EnvSave is a developer tool and is not intended for anyone under 16. We don't knowingly collect data
+      from children.</p>
+
+    <h2 id="changes">10. Changes to this policy</h2>
+    <p>We may update this policy. Material changes will be announced on this page, and the "Last updated"
+      date will change.</p>
