@@ -51,6 +51,9 @@ const termsHtml = await legalPage("terms.html", "Terms of Service", "Terms of Se
 const cookiesHtml = await legalPage("cookies.html", "Cookie Policy", "The cookies and third-party resources EnvSave uses and how to manage them.");
 
 const html = (body: string) => new Response(body, { headers: { "Content-Type": "text/html" } });
+const image = (file: string) => new Response(Bun.file(`${import.meta.dir}/pages/${file}`), {
+  headers: { "Cache-Control": "public, max-age=86400" },
+});
 
 Bun.serve({
   port: PORT,
@@ -71,6 +74,10 @@ Bun.serve({
     "/consent.js": () => new Response(consentJs, {
       headers: { "Content-Type": "text/javascript", "Cache-Control": "public, max-age=3600" },
     }),
+    "/logo.png": () => image("logo.png"),
+    "/logo-light.png": () => image("logo-light.png"),
+    "/favicon.png": () => image("favicon.png"),
+    "/favicon.ico": () => image("favicon.png"),
 
     // Clerk-authenticated API: provision/regenerate token
     "/api/token/provision": {

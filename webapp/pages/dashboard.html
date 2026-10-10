@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — EnvSave</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     :root {
       --bg: #09090b;
@@ -46,7 +47,7 @@
       font-weight: 700; font-size: 1.1rem; color: var(--text);
       text-decoration: none;
     }
-    .nav-brand svg { width: 28px; height: 28px; }
+    .nav-brand img { height: 28px; width: auto; display: block; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     #user-info {
       font-size: 0.85rem; color: var(--text-muted);
@@ -240,12 +241,7 @@
   <nav>
     <div class="nav-inner">
       <a href="/" class="nav-brand">
-        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="28" height="28" rx="6" fill="#10b981" fill-opacity="0.15"/>
-          <path d="M8 10.5C8 9.12 9.12 8 10.5 8H14L10 14H14L10 20H8V10.5Z" fill="#10b981"/>
-          <path d="M14 8H17.5C18.88 8 20 9.12 20 10.5V20H18L14 14H18L14 8Z" fill="#6ee7b7"/>
-        </svg>
-        EnvSave
+        <img src="/logo.png" alt="EnvSave" width="97" height="28">
       </a>
       <div class="nav-right">
         <span id="user-info"></span>

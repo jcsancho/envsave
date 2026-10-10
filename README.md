@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://envsave.com/logo.png">
+    <img src="https://envsave.com/logo-light.png" alt="EnvSave" width="320">
+  </picture>
+</p>
+
 # EnvSave
 
 A local encrypted vault for secrets (API keys, tokens, passwords) designed to be safe for use with LLM agents. Secrets are accessed via opaque keys (`es_...`) — agents can read values but can't discover or enumerate other secrets.
