@@ -187,6 +187,9 @@ envsave list
 # Delete one or more secrets (password required)
 envsave delete OPENAI_API_KEY ANTHROPIC_API_KEY
 
+# Delete every secret whose name contains ALPACA (lists them, asks y/N)
+envsave delete ALPACA
+
 # Rename a secret (password required)
 # Creates a new opaque key derived from the new name, copies the value over,
 # and deletes the old opaque key. The output prints OLD → NEW for easy

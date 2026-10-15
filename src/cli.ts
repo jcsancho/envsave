@@ -67,7 +67,7 @@ Usage:
   envsave get <opaque_key>              Retrieve a value (no password needed)
   envsave show <key>                    Show real value by key name (password required)
   envsave reveal <keyword> [keyword2]... Show opaque key(s) for any name matching keyword (password required)
-  envsave delete <key> [key2 ...]       Remove one or more secrets (password required)
+  envsave delete <name|pattern> [...]   Remove secrets; a partial name lists matches and asks to confirm (password required)
   envsave rename <old> <new>            Rename a secret (creates new opaque key, deletes old) (password required)
   envsave search <keyword>              Search keys matching keyword (no password)
   envsave scan [dir]                    Scan project for env variable usage
@@ -329,16 +329,53 @@ async function main(): Promise<void> {
     }
 
     case "delete": {
-      const keys = args.slice(1);
-      if (keys.length === 0) {
-        console.error("Usage: envsave delete <key> [key2 ...]");
+      const names = args.slice(1);
+      if (names.length === 0) {
+        console.error("Usage: envsave delete <name|pattern> [name2 ...]");
         process.exit(1);
       }
       const password = await requirePassword();
-      const { deleted, notFound } = deleteSecrets(keys, password);
-      for (const key of deleted) console.log(`Secret '${key}' deleted.`);
-      for (const key of notFound) console.error(`Secret '${key}' not found.`);
-      if (notFound.length > 0) process.exit(1);
+      const registry = listKeys(password);
+
+      // Exact names are deleted directly; anything else is a case-insensitive
+      // substring pattern whose matches are listed and need confirmation.
+      const toDelete = new Set<string>();
+      const matched = new Set<string>();
+      const unmatched: string[] = [];
+      for (const name of names) {
+        if (registry.includes(name)) {
+          toDelete.add(name);
+          continue;
+        }
+        const lower = name.toLowerCase();
+        const matches = registry.filter(k => k.toLowerCase().includes(lower));
+        if (matches.length === 0) unmatched.push(name);
+        for (const m of matches) matched.add(m);
+      }
+
+      for (const name of unmatched) console.error(`Secret '${name}' not found.`);
+
+      const toConfirm = [...matched].filter(k => !toDelete.has(k));
+      if (toConfirm.length > 0) {
+        console.log(`Matching secrets (${toConfirm.length}):`);
+        for (const k of toConfirm) console.log(`  ${k}`);
+        const rl = createInterface({ input: process.stdin, output: process.stderr });
+        const answer = await new Promise<string>((resolve) => {
+          rl.question(`Delete ${toConfirm.length === 1 ? "it" : `all ${toConfirm.length}`}? (y/N) `, resolve);
+        });
+        rl.close();
+        if (answer.trim().toLowerCase() === "y") {
+          for (const k of toConfirm) toDelete.add(k);
+        } else {
+          console.log("Matching secrets not deleted.");
+        }
+      }
+
+      if (toDelete.size > 0) {
+        const { deleted } = deleteSecrets([...toDelete], password);
+        for (const name of deleted) console.log(`Secret '${name}' deleted.`);
+      }
+      if (unmatched.length > 0) process.exit(1);
       break;
     }
 

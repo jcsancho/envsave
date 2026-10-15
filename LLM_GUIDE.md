@@ -122,7 +122,7 @@ Your code doesn't change — `envsave.get("es_7a3f2b1e9c8d4f6b2a1c3d5f")` return
 | `envsave set <key> <value>` | Store secret (outputs opaque key) |
 | `envsave get <opaque_key>` | Retrieve value |
 | `envsave reveal <key> [key2]...` | Show opaque key(s) for name(s) (password required) |
-| `envsave delete <key> [key2 ...]` | Remove one or more secrets (password required) |
+| `envsave delete <name\|pattern> [...]` | Remove secrets; a partial name lists matches and asks y/N (password required) |
 | `envsave rename <old> <new>` | Rename secret — creates a new opaque key, copies the value, deletes the old (password required) |
 | `envsave list` | List secret names (password required) |
 | `envsave import <file>` | Import from .env file (password required) |
