@@ -84,6 +84,7 @@ Usage:
   envsave install-skill [--agent <name>] [--local|--global]
                                         Install the EnvSave skill for an agent platform.
                                         Supported: claude (default). Coming soon: codex, others.
+  envsave update                        Update envsave to the latest version
   envsave help                          Show this help
 
 Security model:
@@ -175,6 +176,45 @@ async function main(): Promise<void> {
   }
 
   switch (command) {
+    case "update": {
+      const res = await fetch(`https://registry.npmjs.org/${pkg.name}/latest`).catch(() => null);
+      if (!res?.ok) {
+        console.error("Could not reach the npm registry to check for updates.");
+        process.exit(1);
+      }
+      const latest = ((await res.json()) as { version: string }).version;
+      if (latest === pkg.version) {
+        console.log(`envsave ${pkg.version} is already the latest version.`);
+        break;
+      }
+      console.log(`Updating envsave ${pkg.version} → ${latest}...`);
+
+      // Update every global install so neither one shadows the other on PATH.
+      const spec = `${pkg.name}@${latest}`;
+      const installers: [string, string[]][] = [];
+      const npmCheck = spawnSync("npm", ["ls", "-g", pkg.name], { stdio: "ignore", shell: process.platform === "win32" });
+      if (npmCheck.status === 0) installers.push(["npm", ["install", "-g", spec]]);
+      if (existsSync(join(homedir(), ".bun", "install", "global", "node_modules", pkg.name))) {
+        installers.push(["bun", ["add", "-g", spec]]);
+      }
+      if (installers.length === 0) {
+        installers.push(process.argv[1]?.includes(".bun") ? ["bun", ["add", "-g", spec]] : ["npm", ["install", "-g", spec]]);
+      }
+
+      let failed = false;
+      for (const [cmd, cmdArgs] of installers) {
+        console.log(`$ ${cmd} ${cmdArgs.join(" ")}`);
+        const r = spawnSync(cmd, cmdArgs, { stdio: "inherit", shell: process.platform === "win32" });
+        if (r.status !== 0) failed = true;
+      }
+      if (failed) {
+        console.error("Update failed. Try running the command above manually.");
+        process.exit(1);
+      }
+      console.log(`envsave updated to ${latest}.`);
+      break;
+    }
+
     case "activate": {
       const token = args[1];
       if (!token) {

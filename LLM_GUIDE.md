@@ -130,6 +130,7 @@ Your code doesn't change — `envsave.get("es_7a3f2b1e9c8d4f6b2a1c3d5f")` return
 | `envsave backup` | Upload encrypted vault to cloud server |
 | `envsave restore` | Download vault backup from cloud server |
 | `envsave sync` | Sync vault with cloud (auto-detects direction) |
+| `envsave update` | Update envsave to the latest version |
 | `envsave install-skill [--agent <name>] [--local\|--global]` | Install the EnvSave skill for an agent platform (claude only today; codex/others planned). Prompts for scope when no flag. |
 
 ## Encryption Details

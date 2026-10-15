@@ -168,6 +168,9 @@ api_key = get("es_7a3f2b1e9c8d4f6b")
 ## Other Commands
 
 ```bash
+# Update envsave to the latest version (updates npm and bun global installs)
+envsave update
+
 # Show opaque key(s) for any name matching a keyword (password required)
 envsave reveal OPENAI                       # matches OPENAI_API_KEY, OPENAI_ORG, …
 envsave reveal OPENAI_API_KEY DATABASE_URL  # multiple keywords at once
