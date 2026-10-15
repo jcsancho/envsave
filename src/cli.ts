@@ -27,6 +27,7 @@ import {
   renameSecret,
 } from "./vault.ts";
 import { activateLicense, checkLicense, getLicenseToken } from "./license.ts";
+import { disableTouchId, enableTouchId, getPasswordWithTouchId, touchIdEnabled, touchIdSupported, updateTouchIdPassword } from "./touchid.ts";
 import pkg from "../package.json" with { type: "json" };
 
 const args = process.argv.slice(2);
@@ -84,6 +85,8 @@ Usage:
   envsave install-skill [--agent <name>] [--local|--global]
                                         Install the EnvSave skill for an agent platform.
                                         Supported: claude (default). Coming soon: codex, others.
+  envsave touchid [enable|disable|status]
+                                        Unlock with Touch ID instead of typing the password (macOS)
   envsave update                        Update envsave to the latest version
   envsave help                          Show this help
 
@@ -142,6 +145,10 @@ async function promptPassword(prompt = "Master password: "): Promise<string> {
 }
 
 async function requirePassword(): Promise<string> {
+  // Touch ID first (if enabled); the dialog names the command so an
+  // unexpected request from an agent is easy to spot and cancel.
+  const fromTouchId = getPasswordWithTouchId(`run "envsave ${args.join(" ").slice(0, 80)}"`);
+  if (fromTouchId) return fromTouchId;
   const password = await promptPassword();
   if (!password) {
     console.error("Password cannot be empty.");
@@ -176,6 +183,39 @@ async function main(): Promise<void> {
   }
 
   switch (command) {
+    case "touchid": {
+      const sub = args[1] ?? "status";
+      if (!touchIdSupported()) {
+        console.error("Touch ID unlock is only available on macOS.");
+        process.exit(1);
+      }
+      if (sub === "status") {
+        console.log(touchIdEnabled() ? "Touch ID unlock is enabled." : "Touch ID unlock is disabled. Run 'envsave touchid enable'.");
+      } else if (sub === "enable") {
+        const password = await promptPassword();
+        try {
+          listKeys(password);
+        } catch {
+          console.error("Incorrect password.");
+          process.exit(1);
+        }
+        try {
+          enableTouchId(password);
+        } catch (e) {
+          console.error((e as Error).message);
+          process.exit(1);
+        }
+        console.log("Touch ID unlock enabled. Commands that need your password will ask for Touch ID instead.");
+      } else if (sub === "disable") {
+        disableTouchId();
+        console.log("Touch ID unlock disabled. Your password was removed from the Keychain.");
+      } else {
+        console.error("Usage: envsave touchid [enable|disable|status]");
+        process.exit(1);
+      }
+      break;
+    }
+
     case "update": {
       const res = await fetch(`https://registry.npmjs.org/${pkg.name}/latest`).catch(() => null);
       if (!res?.ok) {
@@ -486,6 +526,7 @@ async function main(): Promise<void> {
       }
       const { changePassword } = await import("./vault.ts");
       changePassword(oldPassword, newPassword);
+      updateTouchIdPassword(newPassword);
       console.log("Password changed successfully!");
       break;
     }

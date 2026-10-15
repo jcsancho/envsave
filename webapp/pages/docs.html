@@ -291,6 +291,7 @@
       <a href="#agents">AI agent skill</a>
       <a href="#vercel">Deploying to Vercel</a>
       <a href="#cloud-sync">Cloud backup &amp; sync</a>
+      <a href="#touchid">Touch ID unlock</a>
       <span class="toc-label">Reference</span>
       <a href="#cli">CLI commands</a>
       <a href="#security">Security model</a>
@@ -510,6 +511,31 @@ envsave list</pre>
         the CLI gets a new one and finishes the command you ran.
       </p>
 
+      <h2 id="touchid">Touch ID unlock (macOS)</h2>
+      <p>
+        Instead of typing your master password for every <code>set</code>, <code>show</code>, <code>reveal</code>
+        or <code>list</code>, you can approve each command with Touch ID.
+      </p>
+      <div class="code-block">
+        <div class="code-block-header"><span>terminal</span><button data-copy>Copy</button></div>
+        <pre>envsave touchid enable    <span class="cm"># asks for the master password once</span>
+envsave touchid status
+envsave touchid disable   <span class="cm"># removes the password from the Keychain</span></pre>
+      </div>
+      <p>
+        Your master password is stored in the macOS Keychain. Only a small helper that EnvSave compiles
+        on your Mac can read it, and only after you approve with Touch ID (or your Mac login password).
+        The Touch ID dialog names the command being run. If you cancel, or no screen is available (for
+        example over SSH), EnvSave asks you to type the password instead.
+      </p>
+      <div class="callout">
+        <p>
+          An AI agent can't approve a Touch ID prompt, so commands it runs still need you. If a Touch ID
+          dialog appears for a command you didn't run, cancel it. Enabling Touch ID requires the Xcode
+          command line tools (<code>xcode-select --install</code>).
+        </p>
+      </div>
+
       <h2 id="cli">CLI commands</h2>
       <table>
         <thead><tr><th>Command</th><th>Description</th></tr></thead>
@@ -522,16 +548,18 @@ envsave list</pre>
           <tr><td><code>search TERM</code></td><td>Search names without revealing opaque keys</td></tr>
           <tr><td><code>list</code></td><td>List all secret names</td></tr>
           <tr><td><code>rename OLD NEW</code></td><td>Rename a secret and print the old and new opaque keys so you can update your code</td></tr>
-          <tr><td><code>delete KEY</code></td><td>Delete a secret</td></tr>
+          <tr><td><code>delete KEY... | PATTERN</code></td><td>Delete one or more secrets. A partial name lists every match and asks before deleting them all</td></tr>
           <tr><td><code>import .env</code></td><td>Import secrets from a <code>.env</code> file</td></tr>
           <tr><td><code>export</code></td><td>Print all secrets in <code>.env</code> format</td></tr>
           <tr><td><code>scan [dir]</code></td><td>Find environment variable references and opaque keys in a project</td></tr>
           <tr><td><code>passwd</code></td><td>Change the master password</td></tr>
+          <tr><td><code>touchid [enable|disable|status]</code></td><td>Approve commands with Touch ID instead of typing the password (macOS)</td></tr>
           <tr><td><code>config --max-gets n</code></td><td>Set the maximum number of <code>get</code> calls per minute</td></tr>
           <tr><td><code>vercel KEY... [--env ...]</code></td><td>Push selected secrets to a Vercel project</td></tr>
           <tr><td><code>activate &lt;token&gt;</code></td><td>Activate a license for cloud sync</td></tr>
           <tr><td><code>backup</code> / <code>restore</code> / <code>sync</code></td><td>Cloud backup and sync of the encrypted vault</td></tr>
           <tr><td><code>install-skill [--local|--global]</code></td><td>Install the agent skill</td></tr>
+          <tr><td><code>update</code></td><td>Update EnvSave to the latest version</td></tr>
           <tr><td><code>--version</code></td><td>Show the installed version</td></tr>
         </tbody>
       </table>
@@ -559,6 +587,7 @@ envsave list</pre>
           <tr><td><code>~/.envsave/vault.enc</code></td><td>Encrypted vault</td></tr>
           <tr><td><code>~/.envsave/session.json</code></td><td>Session cache for the unlocked vault</td></tr>
           <tr><td><code>~/.envsave/license.json</code></td><td>Activated license (cloud sync only)</td></tr>
+          <tr><td><code>~/.envsave/bin/envsave-touchid</code></td><td>Touch ID helper (only if Touch ID unlock is enabled)</td></tr>
         </tbody>
       </table>
 

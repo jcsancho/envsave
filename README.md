@@ -61,6 +61,12 @@ Check the installed version any time:
 envsave --version
 ```
 
+Update to the latest version (updates both npm and bun global installs):
+
+```bash
+envsave update
+```
+
 ### Install as a Claude Skill (skills.sh)
 
 ```bash
@@ -292,6 +298,22 @@ envsave sync
 envsave list
 ```
 
+## Touch ID Unlock (macOS)
+
+Approve commands with Touch ID instead of typing your master password every time:
+
+```bash
+envsave touchid enable    # asks for the master password once
+envsave touchid status
+envsave touchid disable   # removes the password from the Keychain
+```
+
+- The master password is stored in the macOS Keychain. Only a small helper that envsave compiles on your Mac (`~/.envsave/bin/envsave-touchid`) can read it, and only after Touch ID or your Mac login password.
+- The Touch ID dialog names the command being run. If you didn't run it (for example, an AI agent did), cancel it.
+- If you cancel, or no screen is available (e.g. over SSH), envsave falls back to asking for the password.
+- AI agents can't approve the prompt, so password-gated commands still need you.
+- Requires the Xcode command line tools (`xcode-select --install`). `envsave passwd` updates the stored password automatically.
+
 ## Security Model
 
 1. Vault is encrypted with AES-256-GCM + PBKDF2 key derivation
@@ -322,3 +344,4 @@ When a license token expires, the CLI automatically contacts the server to renew
 | `~/.envsave/vault.enc` | Encrypted vault |
 | `~/.envsave/license.json` | Activated license (cloud sync only) |
 | `~/.envsave/session.json` | Session cache (decrypted secrets) |
+| `~/.envsave/bin/envsave-touchid` | Touch ID helper (only if Touch ID unlock is enabled) |
