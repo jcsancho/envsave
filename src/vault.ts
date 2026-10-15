@@ -426,17 +426,35 @@ export function getSecret(opaqueKey: string, password: string): string | undefin
 }
 
 export function deleteSecret(key: string, password: string): boolean {
+  return deleteSecrets([key], password).deleted.length === 1;
+}
+
+/**
+ * Delete several secrets with a single vault decrypt/write.
+ * Returns which keys were deleted and which were not found.
+ */
+export function deleteSecrets(keys: string[], password: string): { deleted: string[]; notFound: string[] } {
   const vault = readMainVault(password);
   const sshKeyContent = loadSshKey(vault);
-  const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+  const deleted: string[] = [];
+  const notFound: string[] = [];
 
-  if (!(opaque in vault.secrets)) return false;
-  delete vault.secrets[opaque];
-  vault.registry = vault.registry.filter(k => k !== key);
+  for (const key of new Set(keys)) {
+    const opaque = computeOpaqueName(vault.hmacSeed, key, sshKeyContent);
+    if (!(opaque in vault.secrets)) {
+      notFound.push(key);
+      continue;
+    }
+    delete vault.secrets[opaque];
+    deleted.push(key);
+  }
 
-  writeMainVault(vault, password);
-  writeSessionCache(vault.secrets, vault.registry);
-  return true;
+  if (deleted.length > 0) {
+    vault.registry = vault.registry.filter(k => !deleted.includes(k));
+    writeMainVault(vault, password);
+    writeSessionCache(vault.secrets, vault.registry);
+  }
+  return { deleted, notFound };
 }
 
 /**

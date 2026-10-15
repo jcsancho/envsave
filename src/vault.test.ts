@@ -19,6 +19,7 @@ import {
   revealKey,
   getSecretFromCache,
   deleteSecret,
+  deleteSecrets,
   listKeys,
   importEnv,
   exportEnv,
@@ -231,6 +232,20 @@ describe("vault", () => {
 
       const opaque = revealKey("TO_DELETE", PASSWORD);
       expect(opaque).toBeUndefined();
+    });
+  });
+
+  describe("deleteSecrets", () => {
+    test("removes multiple keys and reports missing ones", () => {
+      initVault(PASSWORD);
+      setSecret("DEL_A", "a", PASSWORD);
+      setSecret("DEL_B", "b", PASSWORD);
+      setSecret("KEEP", "k", PASSWORD);
+
+      const result = deleteSecrets(["DEL_A", "MISSING", "DEL_B"], PASSWORD);
+      expect(result.deleted).toEqual(["DEL_A", "DEL_B"]);
+      expect(result.notFound).toEqual(["MISSING"]);
+      expect(listKeys(PASSWORD)).toEqual(["KEEP"]);
     });
   });
 

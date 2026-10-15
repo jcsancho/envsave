@@ -184,8 +184,8 @@ envsave scan [dir]
 # List all stored key names (password required)
 envsave list
 
-# Delete a secret (password required)
-envsave delete OPENAI_API_KEY
+# Delete one or more secrets (password required)
+envsave delete OPENAI_API_KEY ANTHROPIC_API_KEY
 
 # Rename a secret (password required)
 # Creates a new opaque key derived from the new name, copies the value over,

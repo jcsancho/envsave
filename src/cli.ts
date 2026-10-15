@@ -13,7 +13,7 @@ import {
   getSecret,
   getSecretFromCache,
   showSecret,
-  deleteSecret,
+  deleteSecrets,
   listKeys,
   searchKeys,
   importEnv,
@@ -67,7 +67,7 @@ Usage:
   envsave get <opaque_key>              Retrieve a value (no password needed)
   envsave show <key>                    Show real value by key name (password required)
   envsave reveal <keyword> [keyword2]... Show opaque key(s) for any name matching keyword (password required)
-  envsave delete <key>                  Remove a secret (password required)
+  envsave delete <key> [key2 ...]       Remove one or more secrets (password required)
   envsave rename <old> <new>            Rename a secret (creates new opaque key, deletes old) (password required)
   envsave search <keyword>              Search keys matching keyword (no password)
   envsave scan [dir]                    Scan project for env variable usage
@@ -329,19 +329,16 @@ async function main(): Promise<void> {
     }
 
     case "delete": {
-      const key = args[1];
-      if (!key) {
-        console.error("Usage: envsave delete <key>");
+      const keys = args.slice(1);
+      if (keys.length === 0) {
+        console.error("Usage: envsave delete <key> [key2 ...]");
         process.exit(1);
       }
       const password = await requirePassword();
-      const deleted = deleteSecret(key, password);
-      if (deleted) {
-        console.log(`Secret '${key}' deleted.`);
-      } else {
-        console.error(`Secret '${key}' not found.`);
-        process.exit(1);
-      }
+      const { deleted, notFound } = deleteSecrets(keys, password);
+      for (const key of deleted) console.log(`Secret '${key}' deleted.`);
+      for (const key of notFound) console.error(`Secret '${key}' not found.`);
+      if (notFound.length > 0) process.exit(1);
       break;
     }
 
