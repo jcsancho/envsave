@@ -193,12 +193,12 @@ async function main(): Promise<void> {
       const spec = `${pkg.name}@${latest}`;
       const installers: [string, string[]][] = [];
       const npmCheck = spawnSync("npm", ["ls", "-g", pkg.name], { stdio: "ignore", shell: process.platform === "win32" });
-      if (npmCheck.status === 0) installers.push(["npm", ["install", "-g", spec]]);
+      if (npmCheck.status === 0) installers.push(["npm", ["install", "-g", "--prefer-online", spec]]);
       if (existsSync(join(homedir(), ".bun", "install", "global", "node_modules", pkg.name))) {
-        installers.push(["bun", ["add", "-g", spec]]);
+        installers.push(["bun", ["add", "-g", "--no-cache", spec]]);
       }
       if (installers.length === 0) {
-        installers.push(process.argv[1]?.includes(".bun") ? ["bun", ["add", "-g", spec]] : ["npm", ["install", "-g", spec]]);
+        installers.push(process.argv[1]?.includes(".bun") ? ["bun", ["add", "-g", "--no-cache", spec]] : ["npm", ["install", "-g", "--prefer-online", spec]]);
       }
 
       let failed = false;
