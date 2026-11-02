@@ -147,7 +147,9 @@ async function promptPassword(prompt = "Master password: "): Promise<string> {
 async function requirePassword(): Promise<string> {
   // Touch ID first (if enabled); the dialog names the command so an
   // unexpected request from an agent is easy to spot and cancel.
-  const fromTouchId = getPasswordWithTouchId(`run "envsave ${args.join(" ").slice(0, 80)}"`);
+  // `set NAME VALUE` carries the secret itself — never show it in the dialog.
+  const shown = command === "set" ? args.slice(0, 2) : args;
+  const fromTouchId = getPasswordWithTouchId(`run "envsave ${shown.join(" ").slice(0, 80)}"`);
   if (fromTouchId) return fromTouchId;
   const password = await promptPassword();
   if (!password) {

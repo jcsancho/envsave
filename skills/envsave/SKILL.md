@@ -8,6 +8,21 @@ user_invocable: true
 
 When this skill is triggered, follow the instructions below. Everything you need to know is in this file. Do not research, explore, or investigate envsave — just execute the steps.
 
+## Before any command that unlocks the vault — ALWAYS tell the user first
+
+Commands like `envsave reveal`, `list`, `show`, `search`, `set`, `delete`, `rename`, `import`, `export`, `vercel` and `get <NAME>` unlock the vault. That pops up a **Touch ID or password prompt on the user's screen with no context** — if you run one silently, the user has no idea why their fingerprint is being asked for.
+
+So, every time:
+
+1. **Do not run the command yourself by default.** Stop and write in chat, in plain words:
+   - **which key(s)** you need (e.g. `OPENAI_API_KEY`),
+   - **why** (e.g. "to wire up the OpenAI client in `src/api.ts`"),
+   - **the exact one-line command** for the user to run (e.g. `envsave reveal OPENAI_API_KEY`).
+2. Wait for the user to run it and paste back the output (or to explicitly tell you to run it yourself).
+3. Only if the user asked you to run it: say what you are about to run and that a Touch ID prompt will appear, *then* run it.
+
+Never trigger a Touch ID/password prompt without having explained it in chat immediately before. `envsave.get("es_...")` with an opaque key does **not** prompt and needs no warning.
+
 ## Installation
 
 EnvSave is installed from **npm** (not from a local path on the user's machine). The npm package is scoped: `@envsave/cli`.
@@ -162,6 +177,7 @@ The command automatically:
 4. Don't guess opaque keys. Ask user to run `envsave reveal <NAME>`.
 5. Handle undefined returns — `envsave.get()` returns `undefined`/`None` if key doesn't exist.
 6. **Never write real secret values to any local file** (no `.env.local`, `.env.production`, etc.). For cloud deployments (Vercel, etc.), pipe from `envsave get` directly to the platform CLI.
+7. **Never trigger a Touch ID / password prompt silently.** Before any vault-unlocking command, tell the user which key you need, why, and give them the command to run (see the section at the top).
 
 ## Quick Reference
 
