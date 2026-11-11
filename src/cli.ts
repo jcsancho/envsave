@@ -396,8 +396,19 @@ async function main(): Promise<void> {
           process.stdout.write(value);
           break;
         }
-      } catch {
-        // No cache, fall through to password prompt
+        // Session exists but the key isn't in it. The cache is rewritten on
+        // every vault change, so this is a wrong/stale key — don't prompt.
+        console.error(`Secret not found. Use 'envsave reveal <name>' to get the opaque key (or 'envsave list' to refresh the session).`);
+        process.exit(1);
+      } catch (err) {
+        // Only a missing session should fall through to the password/Touch ID
+        // prompt. A rate-limit error must fail fast; otherwise every blocked
+        // call in a burst pops up a Touch ID dialog.
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.startsWith("Rate limit exceeded")) {
+          console.error(message);
+          process.exit(1);
+        }
       }
       const password = await requirePassword();
       const val = getSecret(key, password);
